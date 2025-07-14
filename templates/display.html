@@ -19,7 +19,7 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            justify-content: center;
+            justify-content: flex-end; /* 改为底部对齐 */
             align-items: center;
         }
 
@@ -27,18 +27,26 @@
             text-align: center;
             max-width: 90vw;
             position: relative;
+            width: 100vw;
+            height: 100vh;
         }
 
         .main-text {
             font-size: 4rem;
             font-weight: bold;
             line-height: 1.4;
-            margin-bottom: 2rem;
+            margin-bottom: 2.5rem;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-            min-height: 200px;
+            min-height: 120px;
             display: flex;
-            align-items: center;
+            align-items: flex-end;
             justify-content: center;
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 10;
+            pointer-events: none;
         }
 
         .main-text.rtl {
@@ -69,9 +77,9 @@
 
         .keyword-overlay {
             position: absolute;
-            top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%);
+            top: 20%; /* 默认上方 */
+            transform: translate(-50%, 0);
             background: rgba(255, 193, 7, 0.95);
             color: #333;
             padding: 2rem 4rem;
@@ -82,6 +90,7 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             animation: keywordPop 0.5s ease-out;
             z-index: 1000;
+            pointer-events: none;
         }
 
         .keyword-original {
@@ -274,12 +283,12 @@
                     if (data.keyword) {
                         document.getElementById('keywordOriginal').textContent = data.keyword;
                         document.getElementById('keywordTranslation').textContent = data.keyword_translation || '';
-                        keywordOverlay.style.display = 'block';
+                        showKeywordOverlayRandom();
                         setTimeout(() => {
-                            keywordOverlay.style.display = 'none';
+                            document.getElementById('keywordOverlay').style.display = 'none';
                         }, 3000);
                     } else {
-                        keywordOverlay.style.display = 'none';
+                        document.getElementById('keywordOverlay').style.display = 'none';
                     }
                     // 调试行
                     if (data.transcribed_text !== undefined) {
@@ -324,6 +333,24 @@
                 }
             } catch (e) {}
         }, 5000);
+
+        // 关键词弹窗随机上方出现，不遮挡字幕
+        function showKeywordOverlayRandom() {
+            const overlay = document.getElementById('keywordOverlay');
+            if (!overlay) return;
+            // 屏幕宽高
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            // 气泡尺寸
+            overlay.style.display = 'block';
+            overlay.style.left = '50%';
+            overlay.style.transform = 'translate(-50%, 0)';
+            // 随机 top，范围 5%~40%（不遮挡底部字幕）
+            const minTop = 0.05 * vh;
+            const maxTop = 0.4 * vh;
+            const top = Math.random() * (maxTop - minTop) + minTop;
+            overlay.style.top = `${top}px`;
+        }
     </script>
 </body>
 </html> 

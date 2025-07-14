@@ -1663,5 +1663,24 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
+<script>
+// 滑块联动指示值
+window.addEventListener('DOMContentLoaded', function() {
+  const matchSlider = document.getElementById('matchThreshold');
+  const matchValue = document.getElementById('matchThresholdValue');
+  if (matchSlider && matchValue) {
+    matchSlider.addEventListener('input', function() {
+      matchValue.textContent = parseFloat(matchSlider.value).toFixed(2);
+    });
+  }
+  const bufferSlider = document.getElementById('audioBufferSeconds');
+  const bufferValue = document.getElementById('audioBufferSecondsValue');
+  if (bufferSlider && bufferValue) {
+    bufferSlider.addEventListener('input', function() {
+      bufferValue.textContent = parseFloat(bufferSlider.value).toFixed(1);
+    });
+  }
+});
+</script>
 </body>
 </html> 

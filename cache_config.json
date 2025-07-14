@@ -2,7 +2,7 @@
     "model_cache_dir": "/Volumes/1T/LargeApplications/AIModels/whisper",
     "selected_model_name": "small",
     "match_threshold": 0.8,
-    "recognition_language": "ko",
+    "recognition_language": "en",
     "audio_buffer_seconds": 2.0,
     "silence_threshold": 0.01,
     "silence_duration": 0.5
