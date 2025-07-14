@@ -1,0 +1,1537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Voice-Synced Text Display</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .nav-tabs {
+            display: flex;
+            background: white;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 1rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            background: none;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        .nav-tab.active {
+            background: #1e3c72;
+            color: white;
+        }
+
+        .nav-tab:hover:not(.active) {
+            background: #f0f0f0;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #1e3c72;
+        }
+
+        textarea.form-control {
+            min-height: 200px;
+            resize: vertical;
+        }
+
+        .btn {
+            padding: 0.8rem 2rem;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: #1e3c72;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2a5298;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+            transform: translateY(-2px);
+        }
+
+        .script-preview {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .script-line {
+            padding: 0.5rem;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .script-line:last-child {
+            border-bottom: none;
+        }
+
+        .line-number {
+            font-weight: bold;
+            color: #666;
+            min-width: 50px;
+        }
+
+        .line-text {
+            flex: 1;
+            margin: 0 1rem;
+        }
+
+        .line-text.highlight {
+            background: #ffe082;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .keywords-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .keywords-table th,
+        .keywords-table td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .keywords-table th {
+            background: #f5f5f5;
+            font-weight: bold;
+        }
+
+        .file-upload {
+            border: 2px dashed #ddd;
+            border-radius: 5px;
+            padding: 2rem;
+            text-align: center;
+            transition: border-color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .file-upload:hover {
+            border-color: #1e3c72;
+        }
+
+        .file-upload.dragover {
+            border-color: #1e3c72;
+            background: #f0f8ff;
+        }
+
+        .status-message {
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+            font-weight: bold;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .controls-section {
+            background: #f9f9f9;
+            padding: 1.5rem;
+            border-radius: 5px;
+            margin-bottom: 2rem;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .progress-bar {
+            background: #f0f0f0;
+            border-radius: 5px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            border: 1px solid #ddd;
+        }
+        .progress-bar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+        .progress-bar-status {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .progress-bar-spinner {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ddd;
+            border-top: 3px solid #4CAF50;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .progress-bar-stop {
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 0.2rem 0.7rem;
+            margin-left: 1rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .progress-bar-stop:hover {
+            background: #da190b;
+        }
+        .progress-bar-container {
+            margin-top: 0.5rem;
+        }
+        .progress-bar-text {
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: #555;
+        }
+        .progress-bar-bar {
+            background: #ddd;
+            border-radius: 3px;
+            height: 20px;
+            overflow: hidden;
+        }
+        .progress-bar-fill {
+            background: #4CAF50;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .editor-container {
+            display: flex;
+            align-items: flex-start;
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+        .line-numbers {
+            user-select: none;
+            background: #f0f0f0;
+            color: #888;
+            text-align: right;
+            padding: 0.8rem 0.5rem 0.8rem 0.2rem;
+            border: 2px solid #ddd;
+            border-right: none;
+            border-radius: 5px 0 0 5px;
+            font-size: 1rem;
+            min-width: 36px;
+            font-family: monospace;
+            white-space: pre;
+            position: relative;
+            z-index: 2;
+        }
+        .editor-textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #ddd;
+            border-radius: 0 5px 5px 0;
+            font-size: 1rem;
+            min-height: 200px;
+            resize: vertical;
+            font-family: inherit;
+            box-sizing: border-box;
+            outline: none;
+            z-index: 1;
+            background: transparent;
+            line-height: 1.5;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .editor-shadow {
+            visibility: hidden;
+            position: absolute;
+            left: 36px;
+            top: 0;
+            right: 0;
+            z-index: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+            overflow-wrap: break-word;
+            font-family: inherit;
+            font-size: 1rem;
+            padding: 0.8rem;
+            border-radius: 0 5px 5px 0;
+            min-height: 200px;
+            pointer-events: none;
+        }
+        .editor-highlight {
+            position: absolute;
+            left: 36px;
+            top: 0;
+            right: 0;
+            pointer-events: none;
+            z-index: 3;
+        }
+        .editor-highlight-line {
+            background: rgba(255, 224, 130, 0.4); /* 半透明 */
+            border-radius: 4px;
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 1.5em;
+            pointer-events: none;
+        }
+
+        .upload-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.5rem 1.1rem;
+            border: none;
+            border-radius: 20px;
+            background: #1976d2;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.08);
+            margin-left: 0.5rem;
+            min-width: 160px;
+            justify-content: center;
+        }
+        .upload-btn:hover {
+            background: #1565c0;
+            color: #fff;
+        }
+        .upload-btn svg {
+            width: 1.2em;
+            height: 1.2em;
+            vertical-align: middle;
+            margin-right: 0.2em;
+            fill: currentColor;
+        }
+
+        @media (max-width: 768px) {
+            .nav-tabs {
+                flex-direction: column;
+            }
+            
+            .control-buttons {
+                flex-direction: column;
+            }
+            
+            .script-line {
+                flex-direction: column;
+            }
+            
+            .line-number {
+                margin-bottom: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Voice-Synced Text Display</h1>
+        <p>Admin Panel - Manage Scripts, Translations & Keywords</p>
+        <div id="statusMessage"></div>
+    </div>
+
+    <div class="container">
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('scripts')">Scripts</button>
+            <button class="nav-tab" onclick="showTab('keywords')">Keywords</button>
+            <button class="nav-tab" onclick="showTab('models')">Models</button>
+            <button class="nav-tab" onclick="showTab('controls')">Controls</button>
+        </div>
+
+        <!-- Scripts Tab -->
+        <div id="scripts" class="tab-content active">
+            <h2>Manage Scripts</h2>
+            
+            <div class="form-group">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
+                    <label for="englishScript" style="margin-bottom:0;">Original Script (one line per sentence):</label>
+                    <div>
+                        <input type="file" id="uploadEnglishScript" accept=".txt" style="display:none" onchange="uploadScriptFile('en')">
+                        <button class="upload-btn" onclick="document.getElementById('uploadEnglishScript').click()">
+                            <svg viewBox="0 0 20 20"><path d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 0 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1z"></path></svg>
+                            Upload Original
+                        </button>
+                    </div>
+                </div>
+                <div class="editor-container" style="position:relative;">
+                    <textarea id="englishScript" class="editor-textarea" placeholder="Enter original script lines..." oninput="markScriptDirtyAndUpdate('en')" onscroll="updateEditor('en')" wrap="soft"></textarea>
+                    <div class="editor-shadow" id="enShadow" style="display:none;"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem;">
+                    <label for="translatedScript" style="margin-bottom:0;">Translated Script (same number of lines as Original):</label>
+                    <div>
+                        <input type="file" id="uploadTranslatedScript" accept=".txt" style="display:none" onchange="uploadScriptFile('zh')">
+                        <button class="upload-btn" onclick="document.getElementById('uploadTranslatedScript').click()">
+                            <svg viewBox="0 0 20 20"><path d="M10 2a1 1 0 0 1 1 1v8.586l2.293-2.293a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4A1 1 0 0 1 5.707 9.293L8 11.586V3a1 1 0 0 1 1-1zm-7 13a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H4a1 1 0 0 1-1-1z"></path></svg>
+                            Upload Translation
+                        </button>
+                    </div>
+                </div>
+                <div class="editor-container" style="position:relative;">
+                    <textarea id="translatedScript" class="editor-textarea" placeholder="Enter translated script lines..." oninput="markScriptDirtyAndUpdate('zh')" onscroll="updateEditor('zh')" wrap="soft"></textarea>
+                    <div class="editor-shadow" id="zhShadow" style="display:none;"></div>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="saveScripts()">Save Scripts</button>
+            <button class="btn btn-success" onclick="loadScripts()">Load Current Scripts</button>
+
+            <div id="scriptPreview" class="script-preview" style="display: none;">
+                <h3>Script Preview</h3>
+                <div id="previewContent"></div>
+            </div>
+        </div>
+
+        <!-- Keywords Tab -->
+        <div id="keywords" class="tab-content">
+            <h2>Manage Keywords</h2>
+            
+            <div class="form-group">
+                <label>Upload Keywords CSV File:</label>
+                <div class="file-upload" onclick="document.getElementById('keywordFile').click()">
+                    <p>Click to upload or drag and drop a CSV file</p>
+                    <p><small>Format: keyword,translation</small></p>
+                    <input type="file" id="keywordFile" accept=".csv" style="display: none;" onchange="uploadKeywords()">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Add New Keyword:</label>
+                <div style="display: flex; gap: 1rem; align-items: end;">
+                    <div style="flex: 1;">
+                        <label for="newKeyword">Keyword:</label>
+                        <input type="text" id="newKeyword" class="form-control" placeholder="Enter keyword">
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="newTranslation">Translation:</label>
+                        <input type="text" id="newTranslation" class="form-control" placeholder="Enter translation">
+                    </div>
+                    <button class="btn btn-success" onclick="addKeyword()">Add</button>
+                    <button class="btn btn-primary" onclick="downloadKeywords()">Download CSV</button>
+                </div>
+            </div>
+
+            <div id="keywordsTable"></div>
+        </div>
+
+        <!-- Models Tab -->
+        <div id="models" class="tab-content">
+            <h2>Whisper Model Management</h2>
+
+            <div class="controls-section">
+                <h3>句子匹配相似度阈值</h3>
+                <div class="form-group">
+                    <label for="matchThreshold">匹配相似度（0.5~1.0，越高越严格）：<span id="matchThresholdValue">0.8</span></label>
+                    <input type="range" min="0.5" max="1.0" step="0.01" value="0.8" id="matchThreshold" style="width: 300px;">
+                    <button class="btn btn-primary" style="margin-left: 1rem;" onclick="saveMatchThreshold()">保存</button>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <h3>识别语言</h3>
+                <div class="form-group">
+                    <label for="recognitionLanguage">识别语言：</label>
+                    <select id="recognitionLanguage" class="form-control" style="width: 220px; display: inline-block;">
+                        <option value="auto">自动检测</option>
+                        <option value="en">English</option>
+                        <option value="ja">日本語 (Japanese)</option>
+                        <option value="ko">한국어 (Korean)</option>
+                        <option value="es">Español (Spanish)</option>
+                        <option value="fr">Français (French)</option>
+                        <option value="de">Deutsch (German)</option>
+                        <option value="ru">Русский (Russian)</option>
+                        <option value="it">Italiano (Italian)</option>
+                        <option value="pt">Português (Portuguese)</option>
+                        <option value="ar">العربية (Arabic)</option>
+                        <option value="hi">हिन्दी (Hindi)</option>
+                        <!-- 其他常用语言可按需添加 -->
+                    </select>
+                    <button class="btn btn-primary" style="margin-left: 1rem;" onclick="saveRecognitionLanguage()">保存</button>
+                </div>
+            </div>
+            <div class="controls-section">
+                <h3>音频缓冲区长度</h3>
+                <div class="form-group">
+                    <label for="audioBufferSeconds">缓冲区时长（秒，1~10）：<span id="audioBufferSecondsValue">2.0</span></label>
+                    <input type="range" min="1" max="10" step="0.1" value="2.0" id="audioBufferSeconds" style="width: 300px;">
+                    <button class="btn btn-primary" style="margin-left: 1rem;" onclick="saveAudioBufferSeconds()">保存</button>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <h3>Model Selection</h3>
+                
+                <div class="form-group">
+                    <label for="modelSelect">Current Model:</label>
+                    <select id="modelSelect" class="form-control" onchange="setModel()">
+                        <option value="">Loading models...</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cacheDir">Model Cache Directory:</label>
+                    <div style="display: flex; gap: 1rem; align-items: end;">
+                        <input type="text" id="cacheDir" class="form-control" placeholder="Leave empty for default (~/.cache/whisper)">
+                        <button class="btn btn-primary" onclick="setCacheDir()">Set Directory</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <h3>Model Download</h3>
+                
+                <div class="form-group">
+                    <label for="downloadModel">Download Model:</label>
+                    <div style="display: flex; gap: 1rem; align-items: end;">
+                        <select id="downloadModel" class="form-control">
+                            <option value="">Select model to download...</option>
+                        </select>
+                        <button class="btn btn-success" onclick="downloadModel()">Download</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <div id="downloadProgressContainer">
+                        <!-- 动态进度条将在这里创建 -->
+                    </div>
+                </div>
+                
+                <div class="control-buttons">
+                    <button class="btn btn-primary" onclick="downloadBasicModels()">Download Basic Models</button>
+                    <button class="btn btn-primary" onclick="downloadAllModels()">Download All Models</button>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <h3>Model Status</h3>
+                <div id="modelStatus">
+                    <p><strong>Current Model:</strong> <span id="currentModelText">Loading...</span></p>
+                    <p><strong>Cache Directory:</strong> <span id="cacheDirText">Loading...</span></p>
+                    <p><strong>Available Models:</strong></p>
+                    <div id="modelList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Tab -->
+        <div id="controls" class="tab-content">
+            <h2>System Controls</h2>
+            
+            <div class="controls-section">
+                <h3>Speech Recognition</h3>
+                
+                <div class="form-group">
+                    <label for="audioDevice">Audio Input Device:</label>
+                    <select id="audioDevice" class="form-control" onchange="setAudioDevice()">
+                        <option value="">Loading devices...</option>
+                    </select>
+                    <button class="btn btn-secondary" style="margin-top: 0.5rem;" onclick="loadAudioDevices()">Refresh Devices</button>
+                </div>
+                
+                <div class="control-buttons">
+                    <button class="btn btn-success" onclick="startListening()">Start Listening</button>
+                    <button class="btn btn-danger" onclick="stopListening()">Stop Listening</button>
+                    <button class="btn btn-primary" onclick="resetLine()">Reset Line Counter</button>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <h3>Display</h3>
+                <div class="control-buttons">
+                    <a href="/" target="_blank" class="btn btn-primary">Open Display</a>
+                    <button class="btn btn-success" onclick="openDisplayFullscreen()">Open Fullscreen</button>
+                </div>
+            </div>
+
+            <div class="controls-section">
+                <h3>System Status</h3>
+                <div id="systemStatus">
+                    <p><strong>Status:</strong> <span id="statusText">Loading...</span></p>
+                    <p><strong>Current Line:</strong> <span id="currentLineText">-</span></p>
+                    <p><strong>Total Lines:</strong> <span id="totalLinesText">-</span></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="statusMessage"></div>
+    </div>
+
+    <script>
+        // Tab switching
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Load scripts on page load
+        window.onload = function() {
+            loadScripts();
+            loadKeywords();
+            loadAudioDevices();
+            updateSystemStatus();
+            setInterval(updateSystemStatus, 2000);
+            loadRecognitionLanguage(); // 新增：刷新时加载识别语言
+        };
+
+        // Audio device management
+        async function loadAudioDevices() {
+            const btn = document.querySelector('button[onclick="loadAudioDevices()"]');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Refreshing...';
+            }
+            try {
+                const response = await fetch('/api/audio-devices');
+                const data = await response.json();
+                const select = document.getElementById('audioDevice');
+                const prevValue = select.value;
+                if (data.success) {
+                    select.innerHTML = '<option value="">Select audio device...</option>';
+                    if (data.devices.length === 0) {
+                        showStatus('No audio input devices found!', 'error');
+                    } else {
+                        data.devices.forEach(device => {
+                            const option = document.createElement('option');
+                            option.value = device.id;
+                            option.textContent = `${device.name} (${device.channels} channels, ${device.sample_rate}Hz)`;
+                            if (prevValue && prevValue == device.id) option.selected = true;
+                            select.appendChild(option);
+                        });
+                    }
+                } else {
+                    showStatus('Error loading audio devices: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error loading audio devices: ' + error.message, 'error');
+            }
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Refresh Devices';
+            }
+        }
+
+        async function setAudioDevice() {
+            const select = document.getElementById('audioDevice');
+            const deviceId = select.value;
+            
+            if (!deviceId) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/set-audio-device', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ device_id: parseInt(deviceId) })
+                });
+                
+                const data = await response.json();
+                showStatus(data.message, data.success ? 'success' : 'error');
+            } catch (error) {
+                showStatus('Error setting audio device: ' + error.message, 'error');
+            }
+        }
+
+        // Script management
+        async function loadScripts() {
+            try {
+                const response = await fetch('/api/scripts');
+                const data = await response.json();
+                
+                document.getElementById('englishScript').value = data.english.join('\n');
+                document.getElementById('translatedScript').value = data.translated.join('\n');
+                
+                showScriptPreview(data.english, data.translated);
+            } catch (error) {
+                showStatus('Error loading scripts: ' + error.message, 'error');
+            }
+        }
+
+        function checkScriptLineCountAndWarn(type) {
+            const enLines = document.getElementById('englishScript').value.split('\n').filter(line => line.trim());
+            const zhLines = document.getElementById('translatedScript').value.split('\n').filter(line => line.trim());
+            if (enLines.length !== zhLines.length) {
+                showStatus('Error: The number of lines in Original and Translated scripts must match! Current: Original ' + enLines.length + ', Translated ' + zhLines.length, 'error');
+                return false;
+            }
+            return true;
+        }
+
+        async function saveScripts() {
+            try {
+                if (!checkScriptLineCountAndWarn()) return;
+                const englishLines = document.getElementById('englishScript').value.split('\n').filter(line => line.trim());
+                const translatedLines = document.getElementById('translatedScript').value.split('\n').filter(line => line.trim());
+                const response = await fetch('/api/upload-script', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        english: englishLines,
+                        translated: translatedLines
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showStatus('Scripts saved successfully!', 'success');
+                    showScriptPreview(englishLines, translatedLines);
+                } else {
+                    showStatus('Error saving scripts: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error saving scripts: ' + error.message, 'error');
+            }
+        }
+
+        function uploadScriptFile(type) {
+            const input = document.getElementById(type === 'en' ? 'uploadEnglishScript' : 'uploadTranslatedScript');
+            const textarea = document.getElementById(type === 'en' ? 'englishScript' : 'translatedScript');
+            if (!input.files || input.files.length === 0) {
+                showStatus('Please select a file', 'error');
+                return;
+            }
+            const file = input.files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                textarea.value = content;
+                markScriptDirtyAndUpdate(type);
+                if (!checkScriptLineCountAndWarn(type)) {
+                    // 行数不一致时直接提示
+                    return;
+                }
+                showStatus('File loaded. Please check and click Save Scripts to apply.', 'success');
+            };
+            reader.readAsText(file, 'utf-8');
+        }
+
+        function showScriptPreview(english, translated) {
+            const preview = document.getElementById('scriptPreview');
+            const content = document.getElementById('previewContent');
+            content.innerHTML = '';
+            for (let i = 0; i < Math.max(english.length, translated.length); i++) {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'script-line';
+                lineDiv.innerHTML = `
+                    <span class="line-number">${i + 1}</span>
+                    <span class="line-text original" data-line="${i}"><strong>EN:</strong> ${english[i] || ''}</span>
+                    <span class="line-text translated" data-line="${i}"><strong>ZH:</strong> ${translated[i] || ''}</span>
+                `;
+                content.appendChild(lineDiv);
+            }
+            preview.style.display = 'block';
+            // 悬浮高亮
+            content.querySelectorAll('.line-text.original').forEach(el => {
+                el.addEventListener('mouseenter', function() {
+                    const idx = this.getAttribute('data-line');
+                    const pair = content.querySelector(`.line-text.translated[data-line="${idx}"]`);
+                    if (pair) pair.classList.add('highlight');
+                });
+                el.addEventListener('mouseleave', function() {
+                    const idx = this.getAttribute('data-line');
+                    const pair = content.querySelector(`.line-text.translated[data-line="${idx}"]`);
+                    if (pair) pair.classList.remove('highlight');
+                });
+            });
+            content.querySelectorAll('.line-text.translated').forEach(el => {
+                el.addEventListener('mouseenter', function() {
+                    const idx = this.getAttribute('data-line');
+                    const pair = content.querySelector(`.line-text.original[data-line="${idx}"]`);
+                    if (pair) pair.classList.add('highlight');
+                });
+                el.addEventListener('mouseleave', function() {
+                    const idx = this.getAttribute('data-line');
+                    const pair = content.querySelector(`.line-text.original[data-line="${idx}"]`);
+                    if (pair) pair.classList.remove('highlight');
+                });
+            });
+        }
+
+        // Keywords management
+        async function loadKeywords() {
+            try {
+                const response = await fetch('/api/scripts');
+                const data = await response.json();
+                const table = document.getElementById('keywordsTable');
+                let html = '<h3>Current Keywords</h3><table class="keywords-table"><thead><tr><th>Keyword</th><th>Translation</th></tr></thead><tbody>';
+                // 示例英-中
+                if (Object.keys(data.keywords).length === 0) {
+                    const example = [
+                        ['hello', '你好'],
+                        ['welcome', '欢迎'],
+                        ['important', '重要'],
+                        ['thank you', '谢谢'],
+                        ['goodbye', '再见'],
+                        ['questions', '问题'],
+                        ['team', '团队'],
+                        ['project', '项目'],
+                        ['results', '结果'],
+                        ['encouraging', '鼓舞']
+                    ];
+                    for (const [keyword, translation] of example) {
+                        html += `<tr><td>${keyword}</td><td>${translation}</td></tr>`;
+                    }
+                } else {
+                    for (const [keyword, translation] of Object.entries(data.keywords)) {
+                        html += `<tr><td>${keyword}</td><td>${translation}</td></tr>`;
+                    }
+                }
+                html += '</tbody></table>';
+                table.innerHTML = html;
+            } catch (error) {
+                showStatus('Error loading keywords: ' + error.message, 'error');
+            }
+        }
+
+        async function uploadKeywords() {
+            const fileInput = document.getElementById('keywordFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showStatus('Please select a file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/api/upload-keywords', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('Keywords uploaded successfully!', 'success');
+                    loadKeywords();
+                } else {
+                    showStatus('Error uploading keywords: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error uploading keywords: ' + error.message, 'error');
+            }
+        }
+
+        async function addKeyword() {
+            const keyword = document.getElementById('newKeyword').value.trim();
+            const translation = document.getElementById('newTranslation').value.trim();
+            
+            if (!keyword || !translation) {
+                showStatus('Please enter both keyword and translation', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/add-keyword', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keyword, translation })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showStatus('Keyword added successfully!', 'success');
+                    document.getElementById('newKeyword').value = '';
+                    document.getElementById('newTranslation').value = '';
+                    loadKeywords();
+                } else {
+                    showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('Error adding keyword: ' + error.message, 'error');
+            }
+        }
+
+        function downloadKeywords() {
+            window.open('/api/download-keywords', '_blank');
+        }
+
+        // System controls
+        async function startListening() {
+            try {
+                const response = await fetch('/api/start-listening', { method: 'POST' });
+                const data = await response.json();
+                showStatus(data.message, data.success ? 'success' : 'error');
+            } catch (error) {
+                showStatus('Error starting listening: ' + error.message, 'error');
+            }
+        }
+
+        async function stopListening() {
+            try {
+                const response = await fetch('/api/stop-listening', { method: 'POST' });
+                const data = await response.json();
+                showStatus(data.message, data.success ? 'success' : 'error');
+            } catch (error) {
+                showStatus('Error stopping listening: ' + error.message, 'error');
+            }
+        }
+
+        async function resetLine() {
+            try {
+                const response = await fetch('/api/reset-line', { method: 'POST' });
+                const data = await response.json();
+                showStatus(data.message, data.success ? 'success' : 'error');
+            } catch (error) {
+                showStatus('Error resetting line: ' + error.message, 'error');
+            }
+        }
+
+        function openDisplayFullscreen() {
+            const displayWindow = window.open('/', '_blank', 'fullscreen=yes');
+            if (displayWindow) {
+                displayWindow.focus();
+            }
+        }
+
+        async function updateSystemStatus() {
+            try {
+                // 删除 const response = await fetch('/api/current-line'); 及相关处理
+                // 直接从 WebSocket 获取最新状态
+                const ws = new WebSocket('ws://' + window.location.host + '/ws/status');
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        if (data.type === 'status') {
+                            document.getElementById('statusText').textContent = data.message;
+                            document.getElementById('currentLineText').textContent = data.line_index + 1;
+                            document.getElementById('totalLinesText').textContent = data.english_text ? 'Loaded' : 'Not loaded';
+                        }
+                    } catch (e) {
+                        console.error('Error parsing WebSocket message:', e);
+                    }
+                };
+                ws.onerror = function(error) {
+                    console.error('WebSocket Error:', error);
+                };
+                ws.onclose = function() {
+                    console.log('WebSocket connection closed.');
+                };
+            } catch (error) {
+                document.getElementById('statusText').textContent = 'Error';
+            }
+        }
+
+        function showStatus(message, type) {
+            let statusDiv = document.getElementById('statusMessage');
+            if (!statusDiv) {
+                // 若不存在则创建并插入到 dirtyStatus 上方
+                const dirtyDiv = document.getElementById('dirtyStatus');
+                statusDiv = document.createElement('div');
+                statusDiv.id = 'statusMessage';
+                dirtyDiv.parentNode.insertBefore(statusDiv, dirtyDiv);
+            }
+            statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        // File upload drag and drop
+        const fileUpload = document.querySelector('.file-upload');
+        
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        });
+        
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.classList.remove('dragover');
+        });
+        
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('keywordFile').files = files;
+                uploadKeywords();
+            }
+        });
+
+        // Model management functions
+        async function loadModels() {
+            try {
+                const response = await fetch('/api/whisper-models');
+                const data = await response.json();
+                
+                // Update model select dropdowns
+                const modelSelect = document.getElementById('modelSelect');
+                const downloadModel = document.getElementById('downloadModel');
+                
+                modelSelect.innerHTML = '<option value="">Select model...</option>';
+                downloadModel.innerHTML = '<option value="">Select model to download...</option>';
+                
+                data.models.forEach(model => {
+                    const status = model.downloaded ? '✅' : '❌';
+                    const size = model.size_mb ? ` (${model.size_mb}MB)` : '';
+                    const estimatedSize = model.estimated_size_gb ? ` (~${model.estimated_size_gb}GB)` : '';
+                    const current = model.current ? ' (Current)' : '';
+                    
+                    const displaySize = model.downloaded ? size : estimatedSize;
+                    
+                    modelSelect.innerHTML += `<option value="${model.name}" ${model.current ? 'selected' : ''}>${status} ${model.name}${displaySize}${current}</option>`;
+                    downloadModel.innerHTML += `<option value="${model.name}">${status} ${model.name}${displaySize}</option>`;
+                });
+                
+                // Update status display
+                document.getElementById('currentModelText').textContent = data.current_model;
+                document.getElementById('cacheDirText').textContent = data.cache_dir;
+                document.getElementById('cacheDir').value = data.cache_dir || '';
+                
+                // Update model list
+                const modelList = document.getElementById('modelList');
+                modelList.innerHTML = '';
+                data.models.forEach(model => {
+                    const status = model.downloaded ? '✅' : '❌';
+                    const size = model.size_mb ? ` (${model.size_mb}MB)` : '';
+                    const estimatedSize = model.estimated_size_gb ? ` (~${model.estimated_size_gb}GB)` : '';
+                    const current = model.current ? ' (Current)' : '';
+                    
+                    const displaySize = model.downloaded ? size : estimatedSize;
+                    
+                    modelList.innerHTML += `<p>${status} ${model.name}${displaySize}${current}</p>`;
+                });
+                
+            } catch (error) {
+                showStatus('Error loading models: ' + error.message, 'error');
+            }
+        }
+
+        async function setModel() {
+            const modelSelect = document.getElementById('modelSelect');
+            const selectedModel = modelSelect.value;
+            
+            if (!selectedModel) {
+                showStatus('Please select a model', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/set-model', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model_name: selectedModel
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus(data.message, 'success');
+                    loadModels(); // Refresh the model list
+                } else {
+                    showStatus('Error setting model: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error setting model: ' + error.message, 'error');
+            }
+        }
+
+        async function setCacheDir() {
+            const cacheDir = document.getElementById('cacheDir').value.trim();
+            
+            try {
+                const response = await fetch('/api/set-model-cache', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        cache_dir: cacheDir || '~/.cache/whisper'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus(data.message, 'success');
+                    loadModels(); // Refresh the model list
+                } else {
+                    showStatus('Error setting cache directory: ' + data.error, 'error');
+                }
+            } catch (error) {
+                showStatus('Error setting cache directory: ' + error.message, 'error');
+            }
+        }
+
+        // 显示/隐藏下载进度条的辅助函数
+        function showDownloadProgress(modelName) {
+            const progressDiv = document.getElementById('downloadProgressContainer');
+            // 检查是否已存在该模型的进度条
+            const exists = Array.from(progressDiv.children).some(
+                bar => bar.classList.contains('progress-bar') &&
+                       bar.querySelector('.progress-bar-header span').textContent === modelName
+            );
+            if (exists) return; // 已有则不再新建
+
+            const progressBar = document.createElement('div');
+            progressBar.className = 'progress-bar';
+            progressBar.innerHTML = `
+                <div class="progress-bar-header">
+                    <span>${modelName}</span>
+                    <span class="progress-bar-status">Starting...</span>
+                    <button class="progress-bar-stop" onclick="stopDownload('${modelName}')">⏹️ Stop</button>
+                </div>
+                <div class="progress-bar-spinner">
+                    <span class="spinner"></span>
+                    <span class="progress-bar-status-text">Waiting...</span>
+                </div>
+            `;
+            progressDiv.appendChild(progressBar);
+        }
+
+        async function monitorDownloadProgress(modelName) {
+            const progressDiv = document.getElementById('downloadProgressContainer');
+            const progressBars = Array.from(progressDiv.children).filter(bar => bar.classList.contains('progress-bar'));
+            const targetBar = progressBars.find(bar => bar.querySelector('.progress-bar-header span').textContent === modelName);
+            if (!targetBar) {
+                console.error(`Progress bar for ${modelName} not found.`);
+                return;
+            }
+            const progressBarStatus = targetBar.querySelector('.progress-bar-status');
+            const progressBarStatusText = targetBar.querySelector('.progress-bar-status-text');
+            const updateProgress = async () => {
+                try {
+                    const response = await fetch(`/api/download-progress/${modelName}`);
+                    const progress = await response.json();
+                    if (progress.status === 'completed') {
+                        progressBarStatus.textContent = 'Completed';
+                        progressBarStatusText.textContent = 'Download completed';
+                        showStatus(progress.message, 'success');
+                        loadModels();
+                        setTimeout(() => { if (targetBar.parentNode) targetBar.parentNode.removeChild(targetBar); }, 2000);
+                        return;
+                    } else if (progress.status === 'error') {
+                        progressBarStatus.textContent = 'Error';
+                        progressBarStatusText.textContent = 'Download failed';
+                        let details = '';
+                        if (progress.details) {
+                            if (progress.details.stderr) details += `\nStderr: ${progress.details.stderr}`;
+                            if (progress.details.stdout) details += `\nStdout: ${progress.details.stdout}`;
+                        }
+                        showStatus(progress.message + details, 'error');
+                        setTimeout(() => { if (targetBar.parentNode) targetBar.parentNode.removeChild(targetBar); }, 5000);
+                        return;
+                    } else if (progress.status === 'stopping') {
+                        progressBarStatus.textContent = 'Stopping...';
+                        progressBarStatusText.textContent = 'Stopping...';
+                        setTimeout(() => { if (targetBar.parentNode) targetBar.parentNode.removeChild(targetBar); }, 2000);
+                        return;
+                    } else if (progress.status === 'downloading') {
+                        progressBarStatus.textContent = 'Downloading...';
+                        progressBarStatusText.textContent = 'Downloading...';
+                    } else {
+                        progressBarStatus.textContent = progress.status;
+                        progressBarStatusText.textContent = progress.message;
+                    }
+                    setTimeout(updateProgress, 1000);
+                } catch (error) {
+                    setTimeout(updateProgress, 2000);
+                }
+            };
+            updateProgress();
+        }
+
+        async function stopDownload(modelName) {
+            try {
+                const response = await fetch(`/api/stop-download/${modelName}`, { method: 'POST' });
+                const data = await response.json();
+                showStatus(data.message, data.success ? 'success' : 'error');
+            } catch (error) {
+                showStatus('Error stopping download: ' + error.message, 'error');
+            }
+        }
+
+        // 批量下载时每次只显示当前模型进度
+        async function downloadBasicModels() {
+            try {
+                showStatus('Downloading basic models (tiny, base, small)...', 'success');
+                const basicModels = ['tiny', 'base', 'small'];
+                for (const model of basicModels) {
+                    showDownloadProgress(model);
+                    const response = await fetch('/api/download-model', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model_name: model })
+                    });
+                    const data = await response.json();
+                    if (!data.success) {
+                        showStatus(`Error downloading ${model}: ${data.error}`, 'error');
+                        // The progress bar will be updated by monitorDownloadProgress
+                        return;
+                    }
+                    await waitForDownloadComplete(model);
+                }
+                // The progress bar will be updated by monitorDownloadProgress
+                showStatus('Basic models downloaded successfully!', 'success');
+                loadModels();
+            } catch (error) {
+                showStatus('Error downloading basic models: ' + error.message, 'error');
+                // The progress bar will be updated by monitorDownloadProgress
+            }
+        }
+        async function downloadAllModels() {
+            try {
+                showStatus('Downloading all models (this may take a while)...', 'success');
+                const response = await fetch('/api/whisper-models');
+                const data = await response.json();
+                const modelsToDownload = data.models.filter(model => !model.downloaded);
+                for (const model of modelsToDownload) {
+                    showDownloadProgress(model.name);
+                    const downloadResponse = await fetch('/api/download-model', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model_name: model.name })
+                    });
+                    const downloadData = await downloadResponse.json();
+                    if (!downloadData.success) {
+                        showStatus(`Error downloading ${model.name}: ${downloadData.error}`, 'error');
+                        // The progress bar will be updated by monitorDownloadProgress
+                        return;
+                    }
+                    await waitForDownloadComplete(model.name);
+                }
+                // The progress bar will be updated by monitorDownloadProgress
+                showStatus('All models downloaded successfully!', 'success');
+                loadModels();
+            } catch (error) {
+                showStatus('Error downloading all models: ' + error.message, 'error');
+                // The progress bar will be updated by monitorDownloadProgress
+            }
+        }
+        async function waitForDownloadComplete(modelName) {
+            return new Promise((resolve) => {
+                const progressDiv = document.getElementById('downloadProgressContainer');
+                const progressBars = Array.from(progressDiv.children).filter(bar => bar.classList.contains('progress-bar'));
+                const targetBar = progressBars.find(bar => bar.querySelector('.progress-bar-header span').textContent === modelName);
+                const checkProgress = async () => {
+                    try {
+                        const response = await fetch(`/api/download-progress/${modelName}`);
+                        const progress = await response.json();
+                        if (progress.status === 'completed' || progress.status === 'error') {
+                            resolve();
+                        } else {
+                            setTimeout(checkProgress, 1000);
+                        }
+                    } catch (error) {
+                        setTimeout(checkProgress, 2000);
+                    }
+                };
+                checkProgress();
+            });
+        }
+
+        async function downloadModel() {
+            const downloadSelect = document.getElementById('downloadModel');
+            const selectedModel = downloadSelect.value;
+            if (!selectedModel) {
+                showStatus('Please select a model to download', 'error');
+                return;
+            }
+            showDownloadProgress(selectedModel);
+            const response = await fetch('/api/download-model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model_name: selectedModel })
+            });
+            const data = await response.json();
+            if (data.success) {
+                monitorDownloadProgress(selectedModel);
+            } else {
+                showStatus('Error downloading model: ' + data.error, 'error');
+            }
+        }
+
+        // 匹配阈值设置
+        async function loadMatchThreshold() {
+            try {
+                const response = await fetch('/api/match-threshold');
+                const data = await response.json();
+                if (typeof data.match_threshold === 'number') {
+                    document.getElementById('matchThreshold').value = data.match_threshold;
+                    document.getElementById('matchThresholdValue').textContent = data.match_threshold.toFixed(2);
+                }
+            } catch (e) {}
+        }
+        document.getElementById('matchThreshold').addEventListener('input', function() {
+            document.getElementById('matchThresholdValue').textContent = this.value;
+        });
+        async function saveMatchThreshold() {
+            const val = parseFloat(document.getElementById('matchThreshold').value);
+            try {
+                const response = await fetch('/api/match-threshold', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ threshold: val })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showStatus('匹配阈值已保存: ' + val, 'success');
+                } else {
+                    showStatus('保存失败: ' + (data.error || '未知错误'), 'error');
+                }
+            } catch (e) {
+                showStatus('保存失败: ' + e.message, 'error');
+            }
+        }
+
+        // 识别语言设置
+        async function loadRecognitionLanguage() {
+            try {
+                const response = await fetch('/api/recognition-language');
+                const data = await response.json();
+                const select = document.getElementById('recognitionLanguage');
+                select.value = data.recognition_language || 'auto';
+            } catch (e) {}
+        }
+        async function saveRecognitionLanguage() {
+            const val = document.getElementById('recognitionLanguage').value;
+            try {
+                const response = await fetch('/api/set-recognition-language', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ language: val })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showStatus('识别语言已保存: ' + (val === 'auto' ? '自动检测' : document.getElementById('recognitionLanguage').selectedOptions[0].text), 'success');
+                } else {
+                    showStatus('保存失败: ' + (data.error || '未知错误'), 'error');
+                }
+            } catch (e) {
+                showStatus('保存失败: ' + e.message, 'error');
+            }
+        }
+        // 音频缓冲区设置
+        async function loadAudioBufferSeconds() {
+            try {
+                const response = await fetch('/api/audio-buffer-seconds');
+                const data = await response.json();
+                if (typeof data.audio_buffer_seconds === 'number') {
+                    document.getElementById('audioBufferSeconds').value = data.audio_buffer_seconds;
+                    document.getElementById('audioBufferSecondsValue').textContent = data.audio_buffer_seconds.toFixed(1);
+                }
+            } catch (e) {}
+        }
+        document.getElementById('audioBufferSeconds').addEventListener('input', function() {
+            document.getElementById('audioBufferSecondsValue').textContent = this.value;
+        });
+        async function saveAudioBufferSeconds() {
+            const val = parseFloat(document.getElementById('audioBufferSeconds').value);
+            try {
+                const response = await fetch('/api/audio-buffer-seconds', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ seconds: val })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showStatus('缓冲区时长已保存: ' + val + '秒', 'success');
+                } else {
+                    showStatus('保存失败: ' + (data.error || '未知错误'), 'error');
+                }
+            } catch (e) {
+                showStatus('保存失败: ' + e.message, 'error');
+            }
+        }
+
+        // Initialize models tab when shown
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Load models when models tab is shown
+            if (tabName === 'models') {
+                loadModels();
+                loadMatchThreshold();
+                loadRecognitionLanguage();
+                loadAudioBufferSeconds();
+            }
+        }
+
+        // 移除高亮相关函数
+        function updateEditor(type) {
+            // 只保留shadow用于行号/高度同步（如后续需要）
+            const textarea = document.getElementById(type === 'en' ? 'englishScript' : 'translatedScript');
+            const shadow = document.getElementById(type === 'en' ? 'enShadow' : 'zhShadow');
+            shadow.style.display = 'none';
+        }
+        function markScriptDirtyAndUpdate(type) {
+            scriptDirty = true;
+            updateEditor(type);
+        }
+        function clearScriptDirty() {
+            scriptDirty = false;
+        }
+    </script>
+<script>
+// 确保 onbeforeunload 在所有脚本后设置
+window.onbeforeunload = function(e) {
+  if (window.scriptDirty) {
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
+  }
+};
+</script>
+</body>
+</html> 

@@ -1,0 +1,7 @@
+{
+    "model_cache_dir": "/Volumes/1T/LargeApplications/AIModels/whisper",
+    "selected_model_name": "base",
+    "match_threshold": 0.8,
+    "recognition_language": "zh",
+    "audio_buffer_seconds": 2.0
+}

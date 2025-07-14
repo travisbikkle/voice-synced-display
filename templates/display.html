@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice-Synced Text Display</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .display-container {
+            text-align: center;
+            max-width: 90vw;
+            position: relative;
+        }
+
+        .main-text {
+            font-size: 4rem;
+            font-weight: bold;
+            line-height: 1.4;
+            margin-bottom: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .main-text.rtl {
+            direction: rtl;
+            text-align: right;
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .status-listening {
+            background: rgba(76, 175, 80, 0.9);
+            color: white;
+        }
+
+        .status-stopped {
+            background: rgba(244, 67, 54, 0.9);
+            color: white;
+        }
+
+        .keyword-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 193, 7, 0.95);
+            color: #333;
+            padding: 2rem 4rem;
+            border-radius: 20px;
+            font-size: 3rem;
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            animation: keywordPop 0.5s ease-out;
+            z-index: 1000;
+        }
+
+        .keyword-original {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            opacity: 0.8;
+        }
+
+        .keyword-translation {
+            font-size: 3rem;
+            font-weight: bold;
+        }
+
+        @keyframes keywordPop {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .line-counter {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            font-size: 1.5rem;
+            opacity: 0.7;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-start {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-stop {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-reset {
+            background: #2196F3;
+            color: white;
+        }
+
+        .loading {
+            font-size: 2rem;
+            opacity: 0.7;
+        }
+
+        .error {
+            color: #ff6b6b;
+            font-size: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .debug-line {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            padding: 10px 20px;
+            border-top: 2px solid #00ff00;
+            z-index: 1001;
+            word-wrap: break-word;
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .debug-label {
+            color: #ffff00;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .main-text {
+                font-size: 2.5rem;
+            }
+            
+            .keyword-overlay {
+                font-size: 2rem;
+                padding: 1.5rem 3rem;
+            }
+            
+            .keyword-translation {
+                font-size: 2rem;
+            }
+
+            .debug-line {
+                font-size: 0.8rem;
+                padding: 8px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="display-container">
+        <!-- 隐蔽状态指示器：右下角小圆点 -->
+        <div id="statusDot" title="Status" style="position:fixed;right:24px;bottom:24px;width:18px;height:18px;border-radius:50%;background:#888;box-shadow:0 0 8px #0002;z-index:999;"></div>
+        
+        <div id="mainText" class="main-text">
+            <div class="loading">Loading...</div>
+        </div>
+        
+        <div id="keywordOverlay" class="keyword-overlay" style="display: none;">
+            <div class="keyword-original" id="keywordOriginal"></div>
+            <div class="keyword-translation" id="keywordTranslation"></div>
+        </div>
+        
+    </div>
+
+    <!-- Debug line for Whisper recognition -->
+    <div id="debugLine" class="debug-line" style="display: none;">
+        <span class="debug-label">Whisper:</span>
+        <span id="transcribedText">No recognition yet...</span>
+    </div>
+
+    <script>
+        let wsConnected = false;
+        let isListening = false;
+        let ws = null;
+        let reconnectTimeout = null;
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsUrl = protocol + '://' + window.location.host + '/ws/updates';
+            ws = new WebSocket(wsUrl);
+            ws.onopen = () => {
+                wsConnected = true;
+                updateStatusDot();
+            };
+            ws.onclose = () => {
+                wsConnected = false;
+                updateStatusDot();
+            };
+            ws.onerror = (e) => {
+                wsConnected = false;
+                updateStatusDot();
+            };
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    // 主显示区
+                    if (data.translated_text !== undefined) {
+                        const mainTextDiv = document.getElementById('mainText');
+                        mainTextDiv.textContent = data.translated_text;
+                        // RTL检测
+                        if (/^[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/.test(data.translated_text)) {
+                            mainTextDiv.setAttribute('dir', 'rtl');
+                            mainTextDiv.classList.add('rtl');
+                        } else {
+                            mainTextDiv.setAttribute('dir', 'ltr');
+                            mainTextDiv.classList.remove('rtl');
+                        }
+                    }
+                    // 关键词弹窗
+                    const keywordOverlay = document.getElementById('keywordOverlay');
+                    if (data.keyword) {
+                        document.getElementById('keywordOriginal').textContent = data.keyword;
+                        document.getElementById('keywordTranslation').textContent = data.keyword_translation || '';
+                        keywordOverlay.style.display = 'block';
+                        setTimeout(() => {
+                            keywordOverlay.style.display = 'none';
+                        }, 3000);
+                    } else {
+                        keywordOverlay.style.display = 'none';
+                    }
+                    // 调试行
+                    if (data.transcribed_text !== undefined) {
+                        document.getElementById('transcribedText').textContent = data.transcribed_text || 'No recognition yet...';
+                        document.getElementById('debugLine').style.display = 'block';
+                    }
+                    // 状态指示器
+                    if (data.listening !== undefined) {
+                        isListening = data.listening;
+                        updateStatusDot();
+                    }
+                } catch (e) {
+                    // showStatus('WebSocket data error', 'error'); // 删除所有 showStatus('...', ...) 相关调用
+                }
+            };
+        }
+        connectWebSocket();
+
+        // 不再定时轮询，WebSocket推送为主
+        function updateStatusDot() {
+            const dot = document.getElementById('statusDot');
+            if (!wsConnected) {
+                dot.style.background = '#F44336'; // 红色
+                dot.title = 'Disconnected';
+            } else if (isListening) {
+                dot.style.background = '#4CAF50'; // 绿色
+                dot.title = 'Connected & Listening';
+            } else {
+                dot.style.background = '#FFC107'; // 黄色
+                dot.title = 'Connected, Not Listening';
+            }
+        }
+
+        // 在 <script> 末尾添加轮询逻辑
+        setInterval(async () => {
+            try {
+                const resp = await fetch('/api/status');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    isListening = !!data.is_listening;
+                    updateStatusDot();
+                }
+            } catch (e) {}
+        }, 5000);
+    </script>
+</body>
+</html> 
