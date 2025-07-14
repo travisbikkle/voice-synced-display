@@ -432,6 +432,60 @@
             fill: currentColor;
         }
 
+        .help-btn {
+            width: 1.2em;
+            height: 1.2em;
+            border-radius: 50%;
+            border: 1.5px solid #b0b8c9;
+            background: #f7f8fa;
+            color: #1e3c72;
+            font-weight: bold;
+            font-size: 0.95em;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 0.3em;
+            box-shadow: 0 1px 3px rgba(30,60,114,0.06);
+            transition: background 0.18s, border 0.18s, box-shadow 0.18s;
+            outline: none;
+        }
+        .help-btn:hover, .help-btn:focus {
+            background: #e6eaf3;
+            border-color: #7b8bb2;
+            box-shadow: 0 2px 8px rgba(30,60,114,0.10);
+        }
+        .help-tooltip {
+            position: absolute;
+            z-index: 9999;
+            background: #222;
+            color: #fff;
+            padding: 0.7em 1em;
+            border-radius: 8px;
+            font-size: 1em;
+            max-width: 320px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+            white-space: pre-line;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.18s;
+        }
+
+        #recognitionLanguage, #recognitionLanguage option {
+            color: #222 !important;
+            background: #fff !important;
+            opacity: 1 !important;
+            display: inline-block !important;
+            min-height: 1.5em !important;
+        }
+
+        select.form-control {
+            padding: 0.3rem 0.8rem;
+            min-height: 2.1em;
+            background: #fff;
+            color: #222;
+        }
+
         @media (max-width: 768px) {
             .nav-tabs {
                 flex-direction: column;
@@ -548,98 +602,91 @@
         <!-- Models Tab -->
         <div id="models" class="tab-content">
             <h2>Whisper Model Management</h2>
-
             <div class="controls-section">
-                <h3>句子匹配相似度阈值</h3>
+                <table style="width:100%;border-collapse:separate;border-spacing:0 0.5rem;">
+                    <tr>
+                        <td style="min-width:180px;font-weight:bold;">Model:</td>
+                        <td style="width:100%">
+                            <select id="modelSelect" class="form-control" style="max-width:220px;min-width:160px;display:inline-block;margin-right:1.2rem;"></select>
+                        </td>
+                        <td style="min-width:320px;">
+                            <button id="downloadModelBtn" class="btn btn-success" onclick="downloadSelectedModel()" disabled style="margin-right:1rem;padding:0.5rem 1.2rem;min-width:110px;height:2.2rem;font-size:1rem;">Download</button>
+                            <button class="btn btn-primary" onclick="downloadAllModels()" style="padding:0.5rem 1.2rem;min-width:110px;height:2.2rem;font-size:1rem;">Download All Models</button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:180px;font-weight:bold;">Model Cache Directory:</td>
+                        <td colspan="2"><input type="text" id="cacheDir" class="form-control" placeholder="Leave empty for default (~/.cache/whisper)" style="width:100%;"></td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:220px;font-weight:bold;">
+                            <div style="display:flex;align-items:center;gap:0.5rem;white-space:nowrap;">
+                                Similarity Threshold (0.5~1.0):
+                                <button class="help-btn" type="button" data-help="Minimum similarity score for subtitle matching. Higher values mean stricter matching.">?</button>
+                            </div>
+                        </td>
+                        <td colspan="2" style="display:flex;align-items:center;">
+                            <input type="range" min="0.5" max="1.0" step="0.01" id="matchThreshold" style="width:220px;max-width:60%;display:inline-block;vertical-align:middle;">
+                            <span id="matchThresholdValue" style="display:inline-block;text-align:right;width:50px;margin-left:1rem;">0.80</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:220px;font-weight:bold;">
+                            <div style="display:flex;align-items:center;gap:0.5rem;white-space:nowrap;">
+                                Recognition Language:
+                                <button class="help-btn" type="button" data-help="Set the language for speech recognition. 'Auto Detect' will automatically choose the language.">?</button>
+                            </div>
+                        </td>
+                        <td colspan="2">
+                            <select id="recognitionLanguage" class="form-control" style="width:220px;max-width:90%;display:inline-block;height:2.1em;min-height:unset;">
+                                <option value="auto">Auto Detect</option>
+                                <option value="en">English</option>
+                                <option value="ja">Japanese</option>
+                                <option value="ko">Korean</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                                <option value="ru">Russian</option>
+                                <option value="it">Italian</option>
+                                <option value="pt">Portuguese</option>
+                                <option value="ar">Arabic</option>
+                                <option value="hi">Hindi</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:220px;font-weight:bold;">
+                            <div style="display:flex;align-items:center;gap:0.5rem;white-space:nowrap;">
+                                Audio Buffer Length (1~10s):
+                                <button class="help-btn" type="button" data-help="Length of audio (in seconds) processed at a time for recognition.">?</button>
+                            </div>
+                        </td>
+                        <td colspan="2" style="display:flex;align-items:center;">
+                            <input type="range" min="1" max="10" step="0.1" id="audioBufferSeconds" style="width:220px;max-width:60%;display:inline-block;vertical-align:middle;">
+                            <span id="audioBufferSecondsValue" style="display:inline-block;text-align:right;width:50px;margin-left:1rem;">2.0</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:220px;font-weight:bold;">
+                            <div style="display:flex;align-items:center;gap:0.5rem;white-space:nowrap;">
+                                Silence Threshold (0.001~0.1):
+                                <button class="help-btn" type="button" data-help="Volume level below which audio is considered silent. Lower values are more sensitive to silence.">?</button>
+                            </div>
+                        </td>
+                        <td colspan="2"><input type="number" id="silenceThreshold" class="form-control" step="0.001" min="0.001" max="0.1" style="width:120px;max-width:90%;height:2.1em;min-height:unset;"></td>
+                    </tr>
+                    <tr>
+                        <td style="min-width:220px;font-weight:bold;">
+                            <div style="display:flex;align-items:center;gap:0.5rem;white-space:nowrap;">
+                                Silence Duration (s, 0.1~2.0):
+                                <button class="help-btn" type="button" data-help="Minimum duration of silence (in seconds) to trigger a segment split.">?</button>
+                            </div>
+                        </td>
+                        <td colspan="2"><input type="number" id="silenceDuration" class="form-control" step="0.05" min="0.1" max="2.0" style="width:120px;max-width:90%;height:2.1em;min-height:unset;"></td>
+                    </tr>
+                </table>
                 <div class="form-group">
-                    <label for="matchThreshold">匹配相似度（0.5~1.0，越高越严格）：<span id="matchThresholdValue">0.8</span></label>
-                    <input type="range" min="0.5" max="1.0" step="0.01" value="0.8" id="matchThreshold" style="width: 300px;">
-                    <button class="btn btn-primary" style="margin-left: 1rem;" onclick="saveMatchThreshold()">保存</button>
-                </div>
-            </div>
-
-            <div class="controls-section">
-                <h3>识别语言</h3>
-                <div class="form-group">
-                    <label for="recognitionLanguage">识别语言：</label>
-                    <select id="recognitionLanguage" class="form-control" style="width: 220px; display: inline-block;">
-                        <option value="auto">自动检测</option>
-                        <option value="en">English</option>
-                        <option value="ja">日本語 (Japanese)</option>
-                        <option value="ko">한국어 (Korean)</option>
-                        <option value="es">Español (Spanish)</option>
-                        <option value="fr">Français (French)</option>
-                        <option value="de">Deutsch (German)</option>
-                        <option value="ru">Русский (Russian)</option>
-                        <option value="it">Italiano (Italian)</option>
-                        <option value="pt">Português (Portuguese)</option>
-                        <option value="ar">العربية (Arabic)</option>
-                        <option value="hi">हिन्दी (Hindi)</option>
-                        <!-- 其他常用语言可按需添加 -->
-                    </select>
-                    <button class="btn btn-primary" style="margin-left: 1rem;" onclick="saveRecognitionLanguage()">保存</button>
-                </div>
-            </div>
-            <div class="controls-section">
-                <h3>音频缓冲区长度</h3>
-                <div class="form-group">
-                    <label for="audioBufferSeconds">缓冲区时长（秒，1~10）：<span id="audioBufferSecondsValue">2.0</span></label>
-                    <input type="range" min="1" max="10" step="0.1" value="2.0" id="audioBufferSeconds" style="width: 300px;">
-                    <button class="btn btn-primary" style="margin-left: 1rem;" onclick="saveAudioBufferSeconds()">保存</button>
-                </div>
-            </div>
-
-            <div class="controls-section">
-                <h3>Model Selection</h3>
-                
-                <div class="form-group">
-                    <label for="modelSelect">Current Model:</label>
-                    <select id="modelSelect" class="form-control" onchange="setModel()">
-                        <option value="">Loading models...</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="cacheDir">Model Cache Directory:</label>
-                    <div style="display: flex; gap: 1rem; align-items: end;">
-                        <input type="text" id="cacheDir" class="form-control" placeholder="Leave empty for default (~/.cache/whisper)">
-                        <button class="btn btn-primary" onclick="setCacheDir()">Set Directory</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="controls-section">
-                <h3>Model Download</h3>
-                
-                <div class="form-group">
-                    <label for="downloadModel">Download Model:</label>
-                    <div style="display: flex; gap: 1rem; align-items: end;">
-                        <select id="downloadModel" class="form-control">
-                            <option value="">Select model to download...</option>
-                        </select>
-                        <button class="btn btn-success" onclick="downloadModel()">Download</button>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <div id="downloadProgressContainer">
-                        <!-- 动态进度条将在这里创建 -->
-                    </div>
-                </div>
-                
-                <div class="control-buttons">
-                    <button class="btn btn-primary" onclick="downloadBasicModels()">Download Basic Models</button>
-                    <button class="btn btn-primary" onclick="downloadAllModels()">Download All Models</button>
-                </div>
-            </div>
-
-            <div class="controls-section">
-                <h3>Model Status</h3>
-                <div id="modelStatus">
-                    <p><strong>Current Model:</strong> <span id="currentModelText">Loading...</span></p>
-                    <p><strong>Cache Directory:</strong> <span id="cacheDirText">Loading...</span></p>
-                    <p><strong>Available Models:</strong></p>
-                    <div id="modelList"></div>
+                    <div id="downloadProgressContainer"></div>
                 </div>
             </div>
         </div>
@@ -711,6 +758,7 @@
             updateSystemStatus();
             setInterval(updateSystemStatus, 2000);
             loadRecognitionLanguage(); // 新增：刷新时加载识别语言
+            loadSilenceConfig(); // 新增：刷新时加载静音配置
         };
 
         // Audio device management
@@ -1100,45 +1148,28 @@
             try {
                 const response = await fetch('/api/whisper-models');
                 const data = await response.json();
-                
-                // Update model select dropdowns
                 const modelSelect = document.getElementById('modelSelect');
-                const downloadModel = document.getElementById('downloadModel');
-                
+                const downloadModelBtn = document.getElementById('downloadModelBtn');
                 modelSelect.innerHTML = '<option value="">Select model...</option>';
-                downloadModel.innerHTML = '<option value="">Select model to download...</option>';
-                
+                downloadModelBtn.disabled = true;
                 data.models.forEach(model => {
                     const status = model.downloaded ? '✅' : '❌';
                     const size = model.size_mb ? ` (${model.size_mb}MB)` : '';
                     const estimatedSize = model.estimated_size_gb ? ` (~${model.estimated_size_gb}GB)` : '';
                     const current = model.current ? ' (Current)' : '';
-                    
                     const displaySize = model.downloaded ? size : estimatedSize;
-                    
                     modelSelect.innerHTML += `<option value="${model.name}" ${model.current ? 'selected' : ''}>${status} ${model.name}${displaySize}${current}</option>`;
-                    downloadModel.innerHTML += `<option value="${model.name}">${status} ${model.name}${displaySize}</option>`;
                 });
-                
-                // Update status display
-                document.getElementById('currentModelText').textContent = data.current_model;
-                document.getElementById('cacheDirText').textContent = data.cache_dir;
-                document.getElementById('cacheDir').value = data.cache_dir || '';
-                
-                // Update model list
-                const modelList = document.getElementById('modelList');
-                modelList.innerHTML = '';
-                data.models.forEach(model => {
-                    const status = model.downloaded ? '✅' : '❌';
-                    const size = model.size_mb ? ` (${model.size_mb}MB)` : '';
-                    const estimatedSize = model.estimated_size_gb ? ` (~${model.estimated_size_gb}GB)` : '';
-                    const current = model.current ? ' (Current)' : '';
-                    
-                    const displaySize = model.downloaded ? size : estimatedSize;
-                    
-                    modelList.innerHTML += `<p>${status} ${model.name}${displaySize}${current}</p>`;
-                });
-                
+                modelSelect.onchange = function() {
+                    const selected = modelSelect.value;
+                    const found = data.models.find(m => m.name === selected);
+                    if (selected && found && !found.downloaded) {
+                        downloadModelBtn.disabled = false;
+                    } else {
+                        downloadModelBtn.disabled = true;
+                    }
+                };
+                setTimeout(() => { modelSelect.onchange(); }, 0);
             } catch (error) {
                 showStatus('Error loading models: ' + error.message, 'error');
             }
@@ -1293,33 +1324,6 @@
         }
 
         // 批量下载时每次只显示当前模型进度
-        async function downloadBasicModels() {
-            try {
-                showStatus('Downloading basic models (tiny, base, small)...', 'success');
-                const basicModels = ['tiny', 'base', 'small'];
-                for (const model of basicModels) {
-                    showDownloadProgress(model);
-                    const response = await fetch('/api/download-model', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model_name: model })
-                    });
-                    const data = await response.json();
-                    if (!data.success) {
-                        showStatus(`Error downloading ${model}: ${data.error}`, 'error');
-                        // The progress bar will be updated by monitorDownloadProgress
-                        return;
-                    }
-                    await waitForDownloadComplete(model);
-                }
-                // The progress bar will be updated by monitorDownloadProgress
-                showStatus('Basic models downloaded successfully!', 'success');
-                loadModels();
-            } catch (error) {
-                showStatus('Error downloading basic models: ' + error.message, 'error');
-                // The progress bar will be updated by monitorDownloadProgress
-            }
-        }
         async function downloadAllModels() {
             try {
                 showStatus('Downloading all models (this may take a while)...', 'success');
@@ -1403,53 +1407,22 @@
                 }
             } catch (e) {}
         }
-        document.getElementById('matchThreshold').addEventListener('input', function() {
-            document.getElementById('matchThresholdValue').textContent = this.value;
-        });
-        async function saveMatchThreshold() {
-            const val = parseFloat(document.getElementById('matchThreshold').value);
-            try {
-                const response = await fetch('/api/match-threshold', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ threshold: val })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    showStatus('匹配阈值已保存: ' + val, 'success');
-                } else {
-                    showStatus('保存失败: ' + (data.error || '未知错误'), 'error');
-                }
-            } catch (e) {
-                showStatus('保存失败: ' + e.message, 'error');
-            }
-        }
-
         // 识别语言设置
         async function loadRecognitionLanguage() {
             try {
                 const response = await fetch('/api/recognition-language');
                 const data = await response.json();
                 const select = document.getElementById('recognitionLanguage');
-                select.value = data.recognition_language || 'auto';
-            } catch (e) {}
-        }
-        async function saveRecognitionLanguage() {
-            const val = document.getElementById('recognitionLanguage').value;
-            try {
-                const response = await fetch('/api/set-recognition-language', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ language: val })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    showStatus('识别语言已保存: ' + (val === 'auto' ? '自动检测' : document.getElementById('recognitionLanguage').selectedOptions[0].text), 'success');
+                console.log(Array.from(select.options).map(o => o.value), select.value, data.recognition_language);
+                const allowed = Array.from(select.options).map(opt => opt.value);
+                if (allowed.includes(data.recognition_language)) {
+                    select.value = data.recognition_language;
                 } else {
-                    showStatus('保存失败: ' + (data.error || '未知错误'), 'error');
+                    select.value = 'auto';
                 }
             } catch (e) {
-                showStatus('保存失败: ' + e.message, 'error');
+                const select = document.getElementById('recognitionLanguage');
+                if (select) select.value = 'auto';
             }
         }
         // 音频缓冲区设置
@@ -1463,25 +1436,16 @@
                 }
             } catch (e) {}
         }
-        document.getElementById('audioBufferSeconds').addEventListener('input', function() {
-            document.getElementById('audioBufferSecondsValue').textContent = this.value;
-        });
-        async function saveAudioBufferSeconds() {
-            const val = parseFloat(document.getElementById('audioBufferSeconds').value);
+        // Silence Detection Config
+        async function loadSilenceConfig() {
             try {
-                const response = await fetch('/api/audio-buffer-seconds', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ seconds: val })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    showStatus('缓冲区时长已保存: ' + val + '秒', 'success');
-                } else {
-                    showStatus('保存失败: ' + (data.error || '未知错误'), 'error');
-                }
+                const resp = await fetch('/api/silence-config');
+                const data = await resp.json();
+                document.getElementById('silenceThreshold').value = data.silence_threshold || 0.01;
+                document.getElementById('silenceDuration').value = data.silence_duration || 0.5;
+                setDefaultSilenceConfig();
             } catch (e) {
-                showStatus('保存失败: ' + e.message, 'error');
+                setDefaultSilenceConfig();
             }
         }
 
@@ -1505,6 +1469,7 @@
                 loadMatchThreshold();
                 loadRecognitionLanguage();
                 loadAudioBufferSeconds();
+                loadSilenceConfig(); // 新增：刷新时加载静音配置
             }
         }
 
@@ -1522,7 +1487,34 @@
         function clearScriptDirty() {
             scriptDirty = false;
         }
+
+        function downloadSelectedModel() {
+  const modelSelect = document.getElementById('modelSelect');
+  const selectedModel = modelSelect.value;
+  if (!selectedModel) return;
+  fetch('/api/download-model', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model_name: selectedModel })
+  }).then(resp => resp.json()).then(data => {
+    if (data.success) {
+      showStatus('Download started for ' + selectedModel, 'success');
+      loadModels();
+    } else {
+      showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+    }
+  });
+}
     </script>
+<script>
+function setDefaultSilenceConfig() {
+  // 设置默认值或兜底，防止报错
+  const st = document.getElementById('silenceThreshold');
+  const sd = document.getElementById('silenceDuration');
+  if (st && (!st.value || isNaN(st.value))) st.value = 0.01;
+  if (sd && (!sd.value || isNaN(sd.value))) sd.value = 0.5;
+}
+</script>
 <script>
 // 确保 onbeforeunload 在所有脚本后设置
 window.onbeforeunload = function(e) {
@@ -1532,6 +1524,144 @@ window.onbeforeunload = function(e) {
     return '';
   }
 };
+</script>
+<script>
+// 自动为参数控件添加英文title
+function addParamTitles() {
+  const paramTitles = [
+    { id: 'matchThreshold', title: 'Minimum similarity score for subtitle matching. Higher values mean stricter matching.' },
+    { id: 'recognitionLanguage', title: "Set the language for speech recognition. 'Auto Detect' will automatically choose the language." },
+    { id: 'audioBufferSeconds', title: 'Length of audio (in seconds) processed at a time for recognition.' },
+    { id: 'silenceThreshold', title: 'Volume level below which audio is considered silent. Lower values are more sensitive to silence.' },
+    { id: 'silenceDuration', title: 'Minimum duration of silence (in seconds) to trigger a segment split.' }
+  ];
+  paramTitles.forEach(p => {
+    const el = document.getElementById(p.id);
+    if (el) el.title = p.title;
+  });
+}
+window.addEventListener('DOMContentLoaded', addParamTitles);
+</script>
+<script>
+// 自动为参数label添加英文tooltip
+function addParamTooltips() {
+  const paramTips = [
+    { label: 'Similarity Threshold', tip: 'Minimum similarity score for subtitle matching. Higher values mean stricter matching.' },
+    { label: 'Recognition Language', tip: "Set the language for speech recognition. 'Auto Detect' will automatically choose the language." },
+    { label: 'Audio Buffer Length', tip: 'Length of audio (in seconds) processed at a time for recognition.' },
+    { label: 'Silence Threshold', tip: 'Volume level below which audio is considered silent. Lower values are more sensitive to silence.' },
+    { label: 'Silence Duration', tip: 'Minimum duration of silence (in seconds) to trigger a segment split.' }
+  ];
+  paramTips.forEach(p => {
+    // 支持多行label
+    const tds = Array.from(document.querySelectorAll('td')).filter(td => td.textContent.trim().startsWith(p.label));
+    tds.forEach(td => {
+      td.title = p.tip;
+      td.style.cursor = 'help';
+    });
+  });
+}
+window.addEventListener('DOMContentLoaded', addParamTooltips);
+</script>
+<script>
+// 帮助按钮弹窗逻辑
+(function(){
+  let tooltip;
+  function showTooltip(e) {
+    const btn = e.currentTarget;
+    if (!tooltip) {
+      tooltip = document.createElement('div');
+      tooltip.className = 'help-tooltip';
+      document.body.appendChild(tooltip);
+    }
+    tooltip.textContent = btn.getAttribute('data-help');
+    const rect = btn.getBoundingClientRect();
+    tooltip.style.left = (rect.right + 10 + window.scrollX) + 'px';
+    tooltip.style.top = (rect.top + window.scrollY - 8) + 'px';
+    tooltip.style.opacity = 1;
+    tooltip.style.pointerEvents = 'auto';
+  }
+  function hideTooltip() {
+    if (tooltip) {
+      tooltip.style.opacity = 0;
+      tooltip.style.pointerEvents = 'none';
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.help-btn').forEach(btn => {
+      btn.addEventListener('click', showTooltip);
+    });
+    document.addEventListener('click', function(e) {
+      if (tooltip && !e.target.classList.contains('help-btn')) hideTooltip();
+    });
+    window.addEventListener('scroll', hideTooltip);
+  });
+})();
+</script>
+<script>
+// 设置Recognition Language默认值和自动保存
+window.addEventListener('DOMContentLoaded', function() {
+  const select = document.getElementById('recognitionLanguage');
+  if (select) {
+    // 绑定自动保存
+    select.addEventListener('change', function() {
+      fetch('/api/set-recognition-language', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: select.value })
+      }).then(resp => resp.json()).then(data => {
+        if (data.success) {
+          showStatus('Recognition language saved: ' + (select.value === 'auto' ? 'Auto Detect' : select.selectedOptions[0].text), 'success');
+        } else {
+          showStatus('Save failed: ' + (data.error || 'Unknown error'), 'error');
+        }
+      }).catch(e => {
+        showStatus('Save failed: ' + e.message, 'error');
+      });
+    });
+    // 加载默认值
+    fetch('/api/recognition-language').then(resp => resp.json()).then(data => {
+      const allowed = Array.from(select.options).map(opt => opt.value);
+      if (allowed.includes(data.recognition_language)) {
+        select.value = data.recognition_language;
+      } else {
+        select.value = 'auto';
+      }
+      // 如果依然无效，强制选中第一个
+      if (!allowed.includes(select.value)) {
+        select.selectedIndex = 0;
+      }
+    }).catch(() => {
+      select.value = 'auto';
+      if (select.selectedIndex < 0) select.selectedIndex = 0;
+    });
+  }
+});
+</script>
+<script>
+// 设置Model Cache Directory默认值和兜底逻辑
+window.addEventListener('DOMContentLoaded', function() {
+  const cacheInput = document.getElementById('cacheDir');
+  if (cacheInput) {
+    // 加载默认值
+    fetch('/api/whisper-models').then(resp => resp.json()).then(data => {
+      let dir = data.cache_dir;
+      if (!dir || typeof dir !== 'string' || dir.trim() === '') {
+        console.warn('后端返回的 cache_dir 为空或无效，使用默认值兜底');
+        dir = '~/.cache/whisper';
+      }
+      cacheInput.value = dir;
+      // 如果依然无效，强制兜底
+      if (!cacheInput.value || cacheInput.value.trim() === '') {
+        cacheInput.value = '~/.cache/whisper';
+      }
+      console.log('Model Cache Directory 加载结果:', cacheInput.value);
+    }).catch((e) => {
+      cacheInput.value = '~/.cache/whisper';
+      console.warn('获取 cache_dir 失败，使用默认值兜底', e);
+    });
+  }
+});
 </script>
 </body>
 </html> 

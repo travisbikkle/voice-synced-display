@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, File, UploadFile, Form, Body
+from fastapi import FastAPI, Request, File, UploadFile, Form, Body, Query
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -17,6 +17,7 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel
 import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
+import collections
 
 app = FastAPI(
     title="Voice-Synced Text Display System",
@@ -56,6 +57,8 @@ MATCH_THRESHOLD = 0.8  # 句子匹配相似度阈值（可通过API动态调整�
 RECOGNITION_LANGUAGE = None  # None=auto, 'en', 'zh', ...
 RECOGNITION_LANGUAGE_UI = None  # UI选择的语言（如 zh-Hans, zh-Hant, en）
 AUDIO_BUFFER_SECONDS = 2.0   # 音频缓冲区长度（秒）
+SILENCE_THRESHOLD = 0.01  # 能量阈值，默认
+SILENCE_DURATION = 0.5    # 静音判定时长（秒）
 
 # Load scripts and keywords
 script_en = []
@@ -199,48 +202,33 @@ def audio_callback(indata, frames, time, status):
     if is_listening:
         audio_buffer.extend(indata[:, 0])
 
-def process_audio():
-    """Process audio buffer and perform speech recognition"""
-    global audio_buffer, current_line_index, current_keyword, current_transcribed_text, RECOGNITION_LANGUAGE, RECOGNITION_LANGUAGE_UI
-    
-    if not audio_buffer or len(audio_buffer) < int(AUDIO_BUFFER_SECONDS * 16000):
+def is_silence(audio_chunk, threshold=None):
+    if threshold is None:
+        threshold = SILENCE_THRESHOLD
+    return np.mean(np.abs(audio_chunk)) < threshold
+
+def process_audio_buffer(buffer):
+    global current_line_index, current_keyword, current_transcribed_text, RECOGNITION_LANGUAGE, RECOGNITION_LANGUAGE_UI
+    audio_data = np.array(buffer)
+    if np.max(np.abs(audio_data)) == 0:
         return
-    
-    # Convert audio buffer to numpy array
-    audio_data = np.array(audio_buffer)
-    audio_buffer = []
-    
-    # Normalize audio
     audio_data = audio_data / np.max(np.abs(audio_data))
-    
     try:
         kwargs = {}
-        # 只允许常用非中文语言
         if RECOGNITION_LANGUAGE_UI in ["en", "ja", "ko", "es", "fr", "de", "ru", "it", "pt", "ar", "hi"]:
             kwargs['language'] = RECOGNITION_LANGUAGE_UI
         elif RECOGNITION_LANGUAGE_UI == "auto" or RECOGNITION_LANGUAGE_UI is None:
-            pass  # 不传 language 参数，自动识别
+            pass
         elif RECOGNITION_LANGUAGE:
             kwargs['language'] = RECOGNITION_LANGUAGE
-        # Transcribe audio
         result = model.transcribe(audio_data, **kwargs)
         transcribed_text = result["text"].strip()
-        # 不再做繁体转换
         if transcribed_text:
-            current_transcribed_text = transcribed_text  # 保存识别的文本用于调试
-            print(f"Transcribed: {transcribed_text}")
-            
-            # Find best matching line
+            current_transcribed_text = transcribed_text
             matched_line = find_best_match(transcribed_text, threshold=MATCH_THRESHOLD)
             if matched_line != -1:
                 current_line_index = matched_line
-                print(f"Matched line {matched_line}: {script_en[matched_line]}")
-            
-            # Detect keywords
             keyword = detect_keywords(transcribed_text)
-            if keyword:
-                print(f"Keyword detected: {keyword[0]} -> {keyword[1]}")
-            # WebSocket推送（只要有内容变化）
             try:
                 global MAIN_LOOP
                 if MAIN_LOOP and MAIN_LOOP.is_running():
@@ -255,18 +243,26 @@ def process_audio():
                     }), MAIN_LOOP)
             except Exception as push_err:
                 print(f"WebSocket push error: {push_err}")
-    
     except Exception as e:
         print(f"Error in speech recognition: {e}")
 
 def audio_processing_thread():
-    """Background thread for processing audio"""
     global audio_buffer, is_listening
-    
+    silence_buffer = collections.deque(maxlen=int(SILENCE_DURATION * 10))  # 0.1s一帧
+    chunk_size = int(0.1 * 16000)  # 0.1秒音频
+    temp_buffer = []
     while is_listening:
-        if len(audio_buffer) > 16000:  # Process when we have 1 second of audio
-            process_audio()
-        time.sleep(0.1)
+        if len(audio_buffer) >= chunk_size:
+            chunk = audio_buffer[:chunk_size]
+            audio_buffer = audio_buffer[chunk_size:]
+            temp_buffer.extend(chunk)
+            silence_buffer.append(is_silence(np.array(chunk)))
+            if len(silence_buffer) == silence_buffer.maxlen and all(silence_buffer):
+                if len(temp_buffer) > int(0.5 * 16000):
+                    process_audio_buffer(temp_buffer)
+                temp_buffer = []
+        else:
+            time.sleep(0.05)
 
 def start_listening():
     """Start listening for speech input"""
@@ -405,6 +401,7 @@ async def get_transcribed_text():
 @app.get("/api/scripts")
 async def get_scripts():
     """Get all scripts for admin panel"""
+    load_scripts()  # 每次请求都重新读取文件
     return {
         'english': script_en,
         'translated': script_translated,
@@ -669,7 +666,9 @@ def save_config():
             'selected_model_name': selected_model_name,
             'match_threshold': MATCH_THRESHOLD,
             'recognition_language': RECOGNITION_LANGUAGE_UI,
-            'audio_buffer_seconds': AUDIO_BUFFER_SECONDS
+            'audio_buffer_seconds': AUDIO_BUFFER_SECONDS,
+            'silence_threshold': SILENCE_THRESHOLD,
+            'silence_duration': SILENCE_DURATION
         }
         with open('cache_config.json', 'w') as f:
             import json
@@ -844,6 +843,14 @@ async def set_audio_buffer_seconds(seconds: float = Body(..., embed=True)):
     save_config()
     return {"success": True, "audio_buffer_seconds": AUDIO_BUFFER_SECONDS}
 
+@app.get("/api/silence-config")
+async def get_silence_config():
+    global SILENCE_THRESHOLD, SILENCE_DURATION
+    return {
+        "silence_threshold": SILENCE_THRESHOLD,
+        "silence_duration": SILENCE_DURATION
+    }
+
 @app.websocket("/ws/updates")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
@@ -858,7 +865,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 def load_cache_config():
     """Load cache directory configuration"""
-    global model_cache_dir, selected_model_name, MATCH_THRESHOLD, RECOGNITION_LANGUAGE, AUDIO_BUFFER_SECONDS, RECOGNITION_LANGUAGE_UI
+    global model_cache_dir, selected_model_name, MATCH_THRESHOLD, RECOGNITION_LANGUAGE, AUDIO_BUFFER_SECONDS, RECOGNITION_LANGUAGE_UI, SILENCE_THRESHOLD, SILENCE_DURATION
     
     try:
         import json
@@ -880,6 +887,12 @@ def load_cache_config():
                 if 'audio_buffer_seconds' in config:
                     AUDIO_BUFFER_SECONDS = config['audio_buffer_seconds']
                     print(f"🎤 加载音频缓冲区时长: {AUDIO_BUFFER_SECONDS}")
+                if 'silence_threshold' in config:
+                    SILENCE_THRESHOLD = config['silence_threshold']
+                    print(f"🔇 加载静音阈值: {SILENCE_THRESHOLD}")
+                if 'silence_duration' in config:
+                    SILENCE_DURATION = config['silence_duration']
+                    print(f"🔇 加载静音时长: {SILENCE_DURATION}")
     except Exception as e:
         print(f"⚠️ 加载缓存配置失败: {e}")
 
