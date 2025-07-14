@@ -602,6 +602,7 @@
         <!-- Models Tab -->
         <div id="models" class="tab-content">
             <h2>Whisper Model Management</h2>
+            <div id="torchDeviceStatus" style="margin-bottom:1rem;font-weight:bold;color:#1976d2;">Device: <span id="torchDevice">Loading...</span></div>
             <div class="controls-section">
                 <table style="width:100%;border-collapse:separate;border-spacing:0 0.5rem;">
                     <tr>
@@ -759,6 +760,7 @@
             setInterval(updateSystemStatus, 2000);
             loadRecognitionLanguage(); // 新增：刷新时加载识别语言
             loadSilenceConfig(); // 新增：刷新时加载静音配置
+            updateTorchDeviceStatus(); // 新增：刷新时加载设备状态
         };
 
         // Audio device management
@@ -1470,6 +1472,7 @@
                 loadRecognitionLanguage();
                 loadAudioBufferSeconds();
                 loadSilenceConfig(); // 新增：刷新时加载静音配置
+                updateTorchDeviceStatus(); // 新增：刷新时加载设备状态
             }
         }
 
@@ -1681,6 +1684,26 @@ window.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+</script>
+<script>
+async function updateTorchDeviceStatus() {
+    try {
+        const response = await fetch('/api/torch-device');
+        const data = await response.json();
+        const el = document.getElementById('torchDevice');
+        if (data.device === 'cuda') {
+            el.textContent = 'GPU (CUDA)';
+            el.style.color = '#388e3c';
+        } else {
+            el.textContent = 'CPU';
+            el.style.color = '#d32f2f';
+        }
+    } catch (e) {
+        const el = document.getElementById('torchDevice');
+        el.textContent = 'Unknown';
+        el.style.color = '#888';
+    }
+}
 </script>
 </body>
 </html> 

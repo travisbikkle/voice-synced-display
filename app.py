@@ -18,6 +18,9 @@ from pydantic import BaseModel
 import asyncio
 from fastapi import WebSocket, WebSocketDisconnect
 import collections
+import torch  # Add this at the top-level imports if not present
+
+print(f"[DEBUG] Loaded app.py from: {__file__}")
 
 app = FastAPI(
     title="Voice-Synced Text Display System",
@@ -591,14 +594,13 @@ async def get_whisper_models():
         'medium': 1.42, 'medium.en': 1.42,
         'large': 2.87, 'large-v1': 2.87, 'large-v2': 2.87, 'large-v3': 2.87
     }
-    
+
     # Use custom cache directory if set, otherwise use default
     if model_cache_dir:
         cache_dir = Path(model_cache_dir)
     else:
         cache_dir = Path.home() / ".cache" / "whisper"
-    
-    # Check which models are downloaded
+
     downloaded_models = []
     if cache_dir.exists():
         for file in cache_dir.glob("*.pt"):
@@ -609,16 +611,15 @@ async def get_whisper_models():
                 'size_mb': round(size_mb, 1),
                 'downloaded': True
             })
-    
-    # Create full model list
+    # 新增：如果目录不存在，所有模型均未下载
+    else:
+        downloaded_models = []
+
     models = []
     for model_name in available_models:
         downloaded = any(m['name'] == model_name for m in downloaded_models)
         size_info = next((m for m in downloaded_models if m['name'] == model_name), None)
-        
-        # Get estimated size
         estimated_size_gb = model_sizes.get(model_name, 0.0)
-        
         models.append({
             'name': model_name,
             'downloaded': downloaded,
@@ -626,7 +627,7 @@ async def get_whisper_models():
             'estimated_size_gb': estimated_size_gb,
             'current': model_name == selected_model_name
         })
-    
+
     return {
         'models': models,
         'current_model': selected_model_name,
@@ -853,6 +854,7 @@ async def get_silence_config():
 
 @app.websocket("/ws/updates")
 async def websocket_endpoint(websocket: WebSocket):
+    print("[DEBUG] WebSocket connection attempt from frontend")
     await manager.connect(websocket)
     # 首次连接时推送当前内容
     if manager.last_push_data:
@@ -861,6 +863,7 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             await asyncio.sleep(60)  # 保持连接心跳
     except WebSocketDisconnect:
+        print("[DEBUG] WebSocket disconnected")
         manager.disconnect(websocket)
 
 def load_cache_config():
@@ -902,6 +905,7 @@ async def startup_event():
     global MAIN_LOOP
     import asyncio
     MAIN_LOOP = asyncio.get_running_loop()
+    print("[DEBUG] FastAPI startup event triggered")
     # Create data directory
     os.makedirs('data', exist_ok=True)
     
@@ -913,10 +917,15 @@ async def startup_event():
     load_keywords()
     
     print("Voice-synced Text Display System")
-    print("Access the display at: http://localhost:8000")
-    print("Access the admin panel at: http://localhost:8000/admin")
-    print("API documentation at: http://localhost:8000/docs")
+    print("Access the display at: http://localhost:8080")
+    print("Access the admin panel at: http://localhost:8080/admin")
+    print("API documentation at: http://localhost:8080/docs")
+
+@app.get("/api/torch-device")
+def get_torch_device():
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    return {"device": device}
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
+    uvicorn.run(app, host="0.0.0.0", port=8080) 
