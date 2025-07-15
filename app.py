@@ -537,9 +537,25 @@ async def stop_speech_recognition():
 async def restart_whisper():
     try:
         # Stop listening if running
-        global is_listening
+        global is_listening, current_line_index
         if is_listening:
             stop_listening()
+        # 重新加载脚本
+        load_scripts()
+        # 重置当前行
+        current_line_index = 0
+        # 主动广播第一行内容
+        import asyncio
+        global MAIN_LOOP
+        if MAIN_LOOP and MAIN_LOOP.is_running():
+            await manager.broadcast({
+                'line_index': current_line_index,
+                'english_text': script_en[0] if script_en else '',
+                'translated_text': script_translated[0] if script_translated else '',
+                'keyword': None,
+                'keyword_translation': None,
+                'transcribed_text': ''
+            })
         # Start listening
         start_listening()
         return {"success": True, "message": "Whisper restarted successfully."}

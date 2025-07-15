@@ -5,7 +5,7 @@
     "recognition_language": "en",
     "audio_buffer_seconds": 1.9,
     "silence_threshold": 0.01,
-    "silence_duration": 0.5,
+    "silence_duration": 0.35,
     "selected_device_id": 7,
     "selected_device_name": "\u9ea6\u514b\u98ce (3- USB Audio Device)"
 }
