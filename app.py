@@ -533,6 +533,19 @@ async def stop_speech_recognition():
     stop_listening()
     return {'success': True, 'message': 'Speech recognition stopped'}
 
+@app.post("/api/restart-whisper")
+async def restart_whisper():
+    try:
+        # Stop listening if running
+        global is_listening
+        if is_listening:
+            stop_listening()
+        # Start listening
+        start_listening()
+        return {"success": True, "message": "Whisper restarted successfully."}
+    except Exception as e:
+        return {"success": False, "message": f"Failed to restart Whisper: {e}"}
+
 @app.post("/api/reset-line")
 async def reset_line():
     """Reset current line index"""
@@ -583,14 +596,20 @@ async def get_audio_devices():
 
 @app.get("/api/status")
 async def get_status():
-    """Get system status"""
     return {
         'is_listening': is_listening,
         'current_line_index': current_line_index,
         'total_lines': len(script_translated),
         'model_loaded': model is not None,
         'current_model': selected_model_name,
-        'model_cache_dir': model_cache_dir
+        'recognition_language': RECOGNITION_LANGUAGE_UI,
+        'match_threshold': MATCH_THRESHOLD,
+        'audio_buffer_seconds': AUDIO_BUFFER_SECONDS,
+        'silence_threshold': SILENCE_THRESHOLD,
+        'silence_duration': SILENCE_DURATION,
+        'model_cache_dir': model_cache_dir,
+        'selected_device_id': selected_device_id,
+        'selected_device_name': selected_device_name if 'selected_device_name' in globals() else None
     }
 
 @app.get("/api/whisper-models")
@@ -852,7 +871,7 @@ async def get_silence_config():
 @app.post("/api/set-config")
 async def set_config(config: dict = Body(...)):
     """统一设置配置参数（支持部分字段更新）"""
-    global MATCH_THRESHOLD, AUDIO_BUFFER_SECONDS, SILENCE_THRESHOLD, SILENCE_DURATION, model_cache_dir, model
+    global MATCH_THRESHOLD, AUDIO_BUFFER_SECONDS, SILENCE_THRESHOLD, SILENCE_DURATION, model_cache_dir, model, RECOGNITION_LANGUAGE_UI
     updated = []
     errors = []
     # model_cache_dir
@@ -904,6 +923,15 @@ async def set_config(config: dict = Body(...)):
             updated.append('silence_duration')
         else:
             errors.append('silence_duration must be between 0.1 and 2.0')
+    # recognition_language
+    if 'recognition_language' in config:
+        value = config['recognition_language']
+        allowed_langs = ["en", "ja", "ko", "es", "fr", "de", "ru", "it", "pt", "ar", "hi", "auto", None]
+        if value in allowed_langs:
+            RECOGNITION_LANGUAGE_UI = value
+            updated.append('recognition_language')
+        else:
+            errors.append('recognition_language not allowed')
     if updated and 'model_cache_dir' not in updated:
         save_config()
     return {"success": len(errors) == 0, "updated": updated, "errors": errors}

@@ -698,6 +698,9 @@
                 <div class="form-group">
                     <div id="downloadProgressContainer"></div>
                 </div>
+                <div class="form-group">
+                    <button class="btn btn-danger" id="restartWhisperBtn" style="min-width:180px;margin-top:1rem;" onclick="restartWhisper()">Restart Whisper</button>
+                </div>
             </div>
         </div>
 
@@ -738,6 +741,7 @@
                     <p><strong>Current Line:</strong> <span id="currentLineText">-</span></p>
                     <p><strong>Total Lines:</strong> <span id="totalLinesText">-</span></p>
                 </div>
+                <div id="systemStatusDetails"></div>
             </div>
 
             <div class="controls-section">
@@ -1124,33 +1128,30 @@
             }
         }
 
-        async function updateSystemStatus() {
-            try {
-                // 删除 const response = await fetch('/api/current-line'); 及相关处理
-                // 直接从 WebSocket 获取最新状态
-                const ws = new WebSocket('ws://' + window.location.host + '/ws/status');
-                ws.onmessage = function(event) {
-                    try {
-                        const data = JSON.parse(event.data);
-                        if (data.type === 'status') {
-                            document.getElementById('statusText').textContent = data.message;
-                            document.getElementById('currentLineText').textContent = data.line_index + 1;
-                            document.getElementById('totalLinesText').textContent = data.english_text ? 'Loaded' : 'Not loaded';
-                        }
-                    } catch (e) {
-                        console.error('Error parsing WebSocket message:', e);
-                    }
-                };
-                ws.onerror = function(error) {
-                    console.error('WebSocket Error:', error);
-                };
-                ws.onclose = function() {
-                    console.log('WebSocket connection closed.');
-                };
-            } catch (error) {
-                document.getElementById('statusText').textContent = 'Error';
-            }
+        // System Status 轮询
+        function updateSystemStatus() {
+            fetch('/api/status')
+                .then(resp => resp.json())
+                .then(data => {
+                    document.getElementById('statusText').textContent = data.is_listening ? 'Listening' : 'Stopped';
+                    document.getElementById('currentLineText').textContent = data.current_line_index + 1;
+                    document.getElementById('totalLinesText').textContent = data.total_lines;
+                    // 新增：展示所有参数
+                    let statusDetails = '';
+                    statusDetails += `<div><b>Current Model:</b> ${data.current_model || ''}</div>`;
+                    statusDetails += `<div><b>Recognition Language:</b> ${data.recognition_language || ''}</div>`;
+                    statusDetails += `<div><b>Match Threshold:</b> ${data.match_threshold}</div>`;
+                    statusDetails += `<div><b>Audio Buffer Seconds:</b> ${data.audio_buffer_seconds}</div>`;
+                    statusDetails += `<div><b>Silence Threshold:</b> ${data.silence_threshold}</div>`;
+                    statusDetails += `<div><b>Silence Duration:</b> ${data.silence_duration}</div>`;
+                    statusDetails += `<div><b>Model Cache Dir:</b> ${data.model_cache_dir || ''}</div>`;
+                    statusDetails += `<div><b>Device ID:</b> ${data.selected_device_id ?? ''}</div>`;
+                    statusDetails += `<div><b>Device Name:</b> ${data.selected_device_name || ''}</div>`;
+                    document.getElementById('systemStatusDetails').innerHTML = statusDetails;
+                });
         }
+        setInterval(updateSystemStatus, 2000);
+        updateSystemStatus();
 
         function showStatus(message, type) {
             let statusDiv = document.getElementById('statusMessage');
@@ -1945,6 +1946,22 @@ async function updateTorchDeviceStatus() {
         el.textContent = 'Unknown';
         el.style.color = '#888';
     }
+}
+</script>
+<script>
+async function restartWhisper() {
+    const btn = document.getElementById('restartWhisperBtn');
+    btn.disabled = true;
+    btn.textContent = 'Restarting...';
+    try {
+        const resp = await fetch('/api/restart-whisper', { method: 'POST' });
+        const data = await resp.json();
+        showStatus(data.message || (data.success ? 'Whisper restarted.' : 'Failed to restart Whisper'), data.success ? 'success' : 'error');
+    } catch (e) {
+        showStatus('Error restarting Whisper: ' + e, 'error');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Restart Whisper';
 }
 </script>
 </body>
