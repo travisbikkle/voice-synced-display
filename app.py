@@ -668,59 +668,85 @@ async def get_whisper_models():
         'cache_dir': str(cache_dir)
     }
 
-@app.post("/api/set-model")
-async def set_model(data: ModelData):
-    """Set the Whisper model to use"""
-    global selected_model_name, model
-    
+@app.post("/api/set-config")
+async def set_config(config: dict = Body(...)):
     try:
-        # Validate model name
-        import whisper
-        if data.model_name not in whisper.available_models():
-            return {'success': False, 'error': 'Invalid model name'}
-        
-        # Reset current model if changing
-        if selected_model_name != data.model_name:
-            model = None
-            selected_model_name = data.model_name
-            print(f"Model changed to: {selected_model_name}")
-            
-            # Save configuration to file
+        global MATCH_THRESHOLD, AUDIO_BUFFER_SECONDS, SILENCE_THRESHOLD, SILENCE_DURATION, model_cache_dir, model, RECOGNITION_LANGUAGE_UI, selected_model_name
+        updated = []
+        errors = []
+        # model_cache_dir
+        if 'model_cache_dir' in config:
+            value = config['model_cache_dir']
+            import os
+            from pathlib import Path
+            cache_path = Path(value)
+            if not cache_path.exists():
+                try:
+                    cache_path.mkdir(parents=True, exist_ok=True)
+                except Exception as e:
+                    errors.append(f'Failed to create cache dir: {e}')
+            if model_cache_dir != value:
+                model = None
+                model_cache_dir = value
+                updated.append('model_cache_dir')
+                print(f"Model cache directory changed to: {model_cache_dir}")
+                save_config()
+        # match_threshold
+        if 'match_threshold' in config:
+            value = config['match_threshold']
+            if 0.0 < value <= 1.0:
+                MATCH_THRESHOLD = value
+                updated.append('match_threshold')
+            else:
+                errors.append('match_threshold must be between 0 and 1')
+        # audio_buffer_seconds
+        if 'audio_buffer_seconds' in config:
+            value = config['audio_buffer_seconds']
+            if 0.5 <= value <= 10.0:
+                AUDIO_BUFFER_SECONDS = value
+                updated.append('audio_buffer_seconds')
+            else:
+                errors.append('audio_buffer_seconds must be between 0.5 and 10.0')
+        # silence_threshold
+        if 'silence_threshold' in config:
+            value = config['silence_threshold']
+            if 0.001 <= value <= 0.1:
+                SILENCE_THRESHOLD = value
+                updated.append('silence_threshold')
+            else:
+                errors.append('silence_threshold must be between 0.001 and 0.1')
+        # silence_duration
+        if 'silence_duration' in config:
+            value = config['silence_duration']
+            if 0.05 <= value <= 2.0:
+                SILENCE_DURATION = value
+                updated.append('silence_duration')
+            else:
+                errors.append('silence_duration must be between 0.05 and 2.0')
+        # selected_model_name（迁移自 /api/set-model）
+        if 'selected_model_name' in config:
+            value = config['selected_model_name']
+            import whisper
+            if value not in whisper.available_models():
+                errors.append('Invalid model name')
+            else:
+                if selected_model_name != value:
+                    model = None
+                    selected_model_name = value
+                    updated.append('selected_model_name')
+                    print(f"Model changed to: {selected_model_name}")
+                save_config()
+        # 其它参数...
+        if updated:
             save_config()
-        
-        return {'success': True, 'message': f'Model set to {selected_model_name}'}
-    
+        if errors:
+            return {"success": False, "updated": updated, "errors": errors}
+        return {"success": True, "updated": updated}
     except Exception as e:
-        return {'success': False, 'error': str(e)}
-
-def save_config():
-    """Save current configuration to file"""
-    try:
-        device_name = None
-        if selected_device_id is not None:
-            try:
-                devices = sd.query_devices()
-                if 0 <= selected_device_id < len(devices):
-                    device_name = devices[selected_device_id]['name']
-            except Exception:
-                pass
-        config = {
-            'model_cache_dir': model_cache_dir,
-            'selected_model_name': selected_model_name,
-            'match_threshold': MATCH_THRESHOLD,
-            'recognition_language': RECOGNITION_LANGUAGE_UI,
-            'audio_buffer_seconds': AUDIO_BUFFER_SECONDS,
-            'silence_threshold': SILENCE_THRESHOLD,
-            'silence_duration': SILENCE_DURATION,
-            'selected_device_id': int(selected_device_id) if selected_device_id is not None else None,
-            'selected_device_name': device_name
-        }
-        with open('cache_config.json', 'w') as f:
-            import json
-            json.dump(config, f, indent=4)
-        print(f"Configuration saved to cache_config.json")
-    except Exception as e:
-        print(f"⚠️ 保存配置失败: {e}")
+        import traceback
+        print("[ERROR] Exception in /api/set-config:", e)
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
 
 @app.post("/api/download-model")
 async def download_model(data: ModelData):
@@ -868,74 +894,6 @@ async def get_silence_config():
         "silence_duration": SILENCE_DURATION
     }
 
-@app.post("/api/set-config")
-async def set_config(config: dict = Body(...)):
-    """统一设置配置参数（支持部分字段更新）"""
-    global MATCH_THRESHOLD, AUDIO_BUFFER_SECONDS, SILENCE_THRESHOLD, SILENCE_DURATION, model_cache_dir, model, RECOGNITION_LANGUAGE_UI
-    updated = []
-    errors = []
-    # model_cache_dir
-    if 'model_cache_dir' in config:
-        value = config['model_cache_dir']
-        import os
-        from pathlib import Path
-        cache_path = Path(value)
-        if not cache_path.exists():
-            try:
-                cache_path.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                errors.append(f'Failed to create cache dir: {e}')
-        if model_cache_dir != value:
-            model = None
-            model_cache_dir = value
-            updated.append('model_cache_dir')
-            print(f"Model cache directory changed to: {model_cache_dir}")
-            save_config()
-    # match_threshold
-    if 'match_threshold' in config:
-        value = config['match_threshold']
-        if 0.0 < value <= 1.0:
-            MATCH_THRESHOLD = value
-            updated.append('match_threshold')
-        else:
-            errors.append('match_threshold must be between 0 and 1')
-    # audio_buffer_seconds
-    if 'audio_buffer_seconds' in config:
-        value = config['audio_buffer_seconds']
-        if 0.5 <= value <= 10.0:
-            AUDIO_BUFFER_SECONDS = value
-            updated.append('audio_buffer_seconds')
-        else:
-            errors.append('audio_buffer_seconds must be between 0.5 and 10.0')
-    # silence_threshold
-    if 'silence_threshold' in config:
-        value = config['silence_threshold']
-        if 0.001 <= value <= 0.1:
-            SILENCE_THRESHOLD = value
-            updated.append('silence_threshold')
-        else:
-            errors.append('silence_threshold must be between 0.001 and 0.1')
-    # silence_duration
-    if 'silence_duration' in config:
-        value = config['silence_duration']
-        if 0.1 <= value <= 2.0:
-            SILENCE_DURATION = value
-            updated.append('silence_duration')
-        else:
-            errors.append('silence_duration must be between 0.1 and 2.0')
-    # recognition_language
-    if 'recognition_language' in config:
-        value = config['recognition_language']
-        allowed_langs = ["en", "ja", "ko", "es", "fr", "de", "ru", "it", "pt", "ar", "hi", "auto", None]
-        if value in allowed_langs:
-            RECOGNITION_LANGUAGE_UI = value
-            updated.append('recognition_language')
-        else:
-            errors.append('recognition_language not allowed')
-    if updated and 'model_cache_dir' not in updated:
-        save_config()
-    return {"success": len(errors) == 0, "updated": updated, "errors": errors}
-
 @app.websocket("/ws/updates")
 async def websocket_endpoint(websocket: WebSocket):
     print("[DEBUG] WebSocket connection attempt from frontend")
@@ -992,6 +950,36 @@ def load_cache_config():
                     print(f"🎤 加载音频设备名: {selected_device_name}")
     except Exception as e:
         print(f"⚠️ 加载缓存配置失败: {e}")
+
+def save_config():
+    try:
+        device_name = None
+        if selected_device_id is not None:
+            try:
+                devices = sd.query_devices()
+                if 0 <= selected_device_id < len(devices):
+                    device_name = devices[selected_device_id]['name']
+            except Exception:
+                pass
+        config = {
+            'model_cache_dir': model_cache_dir,
+            'selected_model_name': selected_model_name,
+            'match_threshold': MATCH_THRESHOLD,
+            'recognition_language': RECOGNITION_LANGUAGE_UI,
+            'audio_buffer_seconds': AUDIO_BUFFER_SECONDS,
+            'silence_threshold': SILENCE_THRESHOLD,
+            'silence_duration': SILENCE_DURATION,
+            'selected_device_id': int(selected_device_id) if selected_device_id is not None else None,
+            'selected_device_name': device_name
+        }
+        with open('cache_config.json', 'w') as f:
+            import json
+            json.dump(config, f, indent=4)
+        print(f"Configuration saved to cache_config.json")
+    except Exception as e:
+        import traceback
+        print(f"⚠️ 保存配置失败: {e}")
+        traceback.print_exc()
 
 # Startup event
 @app.on_event("startup")

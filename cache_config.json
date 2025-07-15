@@ -1,6 +1,6 @@
 {
     "model_cache_dir": "E:\\AIModels\\whisper",
-    "selected_model_name": "small",
+    "selected_model_name": "large-v3",
     "match_threshold": 0.8,
     "recognition_language": "en",
     "audio_buffer_seconds": 1.9,

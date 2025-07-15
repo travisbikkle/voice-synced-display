@@ -694,6 +694,24 @@
                         </td>
                         <td colspan="2"><input type="number" id="silenceDuration" class="form-control" step="0.05" min="0.1" max="2.0" style="width:120px;max-width:90%;height:2.1em;min-height:unset;"></td>
                     </tr>
+                    <tr>
+                        <td style="min-width:220px;font-weight:bold;">
+                            <div style="display:flex;align-items:center;gap:0.5rem;white-space:nowrap;">
+                                Dynamic Background:
+                                <button class="help-btn" type="button" data-help="Choose a dynamic background effect for the display.">?</button>
+                            </div>
+                        </td>
+                        <td colspan="2">
+                            <select id="vantaBgSelect" class="form-control" style="max-width:220px;display:inline-block;">
+                                <option value="waves">Waves</option>
+                                <option value="net">Net</option>
+                                <option value="fog">Fog</option>
+                                <option value="birds">Birds</option>
+                                <option value="clouds">Clouds</option>
+                                <option value="cells">Cells</option>
+                            </select>
+                        </td>
+                    </tr>
                 </table>
                 <div class="form-group">
                     <div id="downloadProgressContainer"></div>
@@ -1212,36 +1230,38 @@
                 const data = await response.json();
                 const modelSelect = document.getElementById('modelSelect');
                 const downloadModelBtn = document.getElementById('downloadModelBtn');
-                // 记住用户当前选择
-                let prevValue = keepSelection ? modelSelect.value : '';
+                // 优先用 localStorage 记忆
+                let prevValue = keepSelection ? (localStorage.getItem('selectedModel') || modelSelect.value) : '';
                 modelSelect.innerHTML = '<option value="">Select model...</option>';
                 downloadModelBtn.disabled = true;
                 let foundPrev = false;
                 data.models.forEach(model => {
                     const status = model.downloaded ? '✅' : '❌';
                     const size = model.size_mb ? ` (${model.size_mb}MB)` : '';
-                    const estimatedSize = model.estimated_size_gb ? ` (~${model.estimated_size_gb}GB)` : '';
-                    const current = model.current ? ' (Current)' : '';
-                    const displaySize = model.downloaded ? size : estimatedSize;
-                    const selected = (prevValue && model.name === prevValue) || (!prevValue && model.current);
-                    if (selected) foundPrev = true;
-                    modelSelect.innerHTML += `<option value="${model.name}"${selected ? ' selected' : ''}>${status} ${model.name}${displaySize}${current}</option>`;
-                });
-                // 如果用户原选择的模型不在新列表，fallback到current_model
-                if (prevValue && !foundPrev) {
-                    const currentModel = data.current_model;
-                    if (currentModel) modelSelect.value = currentModel;
-                }
-                modelSelect.onchange = function() {
-                    const selected = modelSelect.value;
-                    const found = data.models.find(m => m.name === selected);
-                    if (selected && found && !found.downloaded) {
-                        downloadModelBtn.disabled = false;
-                    } else {
-                        downloadModelBtn.disabled = true;
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = `${model.name} ${status}${size}${model.current ? ' (Current)' : ''}`;
+                    if (model.name === prevValue) {
+                        option.selected = true;
+                        foundPrev = true;
                     }
+                    modelSelect.appendChild(option);
+                });
+                if (!foundPrev && prevValue) {
+                    modelSelect.value = prevValue;
+                }
+                // 绑定 onchange 事件，自动保存
+                modelSelect.onchange = async function() {
+                    const selected = modelSelect.value;
+                    localStorage.setItem('selectedModel', selected);
+                    await fetch('/api/set-config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ selected_model_name: selected })
+                    });
+                    // 不要在这里调用 loadModels(true);
                 };
-                setTimeout(() => { modelSelect.onchange(); }, 0);
+                // 不要 setTimeout(() => { modelSelect.onchange(); }, 0);
             } catch (error) {
                 showStatus('Error loading models: ' + error.message, 'error');
             }
@@ -1250,12 +1270,10 @@
         async function setModel() {
             const modelSelect = document.getElementById('modelSelect');
             const selectedModel = modelSelect.value;
-            
             if (!selectedModel) {
                 showStatus('Please select a model', 'error');
                 return;
             }
-            
             try {
                 const response = await fetch('/api/set-model', {
                     method: 'POST',
@@ -1266,10 +1284,9 @@
                         model_name: selectedModel
                     })
                 });
-                
                 const data = await response.json();
-                
                 if (data.success) {
+                    localStorage.setItem('selectedModel', selectedModel);
                     showStatus(data.message, 'success');
                     loadModels(); // Refresh the model list
                 } else {
@@ -1566,36 +1583,38 @@
                 const data = await response.json();
                 const modelSelect = document.getElementById('modelSelect');
                 const downloadModelBtn = document.getElementById('downloadModelBtn');
-                // 记住用户当前选择
-                let prevValue = keepSelection ? modelSelect.value : '';
+                // 优先用 localStorage 记忆
+                let prevValue = keepSelection ? (localStorage.getItem('selectedModel') || modelSelect.value) : '';
                 modelSelect.innerHTML = '<option value="">Select model...</option>';
                 downloadModelBtn.disabled = true;
                 let foundPrev = false;
                 data.models.forEach(model => {
                     const status = model.downloaded ? '✅' : '❌';
                     const size = model.size_mb ? ` (${model.size_mb}MB)` : '';
-                    const estimatedSize = model.estimated_size_gb ? ` (~${model.estimated_size_gb}GB)` : '';
-                    const current = model.current ? ' (Current)' : '';
-                    const displaySize = model.downloaded ? size : estimatedSize;
-                    const selected = (prevValue && model.name === prevValue) || (!prevValue && model.current);
-                    if (selected) foundPrev = true;
-                    modelSelect.innerHTML += `<option value="${model.name}"${selected ? ' selected' : ''}>${status} ${model.name}${displaySize}${current}</option>`;
-                });
-                // 如果用户原选择的模型不在新列表，fallback到current_model
-                if (prevValue && !foundPrev) {
-                    const currentModel = data.current_model;
-                    if (currentModel) modelSelect.value = currentModel;
-                }
-                modelSelect.onchange = function() {
-                    const selected = modelSelect.value;
-                    const found = data.models.find(m => m.name === selected);
-                    if (selected && found && !found.downloaded) {
-                        downloadModelBtn.disabled = false;
-                    } else {
-                        downloadModelBtn.disabled = true;
+                    const option = document.createElement('option');
+                    option.value = model.name;
+                    option.textContent = `${model.name} ${status}${size}${model.current ? ' (Current)' : ''}`;
+                    if (model.name === prevValue) {
+                        option.selected = true;
+                        foundPrev = true;
                     }
+                    modelSelect.appendChild(option);
+                });
+                if (!foundPrev && prevValue) {
+                    modelSelect.value = prevValue;
+                }
+                // 绑定 onchange 事件，自动保存
+                modelSelect.onchange = async function() {
+                    const selected = modelSelect.value;
+                    localStorage.setItem('selectedModel', selected);
+                    await fetch('/api/set-config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ selected_model_name: selected })
+                    });
+                    // 不要在这里调用 loadModels(true);
                 };
-                setTimeout(() => { modelSelect.onchange(); }, 0);
+                // 不要 setTimeout(() => { modelSelect.onchange(); }, 0);
             } catch (error) {
                 showStatus('Error loading models: ' + error.message, 'error');
             }
@@ -1962,6 +1981,19 @@ async function restartWhisper() {
     }
     btn.disabled = false;
     btn.textContent = 'Restart Whisper';
+}
+</script>
+<script>
+// 动态背景选择逻辑
+const vantaBgSelect = document.getElementById('vantaBgSelect');
+if (vantaBgSelect) {
+    // 初始化
+    vantaBgSelect.value = localStorage.getItem('vantaBgType') || 'waves';
+    vantaBgSelect.addEventListener('change', function() {
+        localStorage.setItem('vantaBgType', vantaBgSelect.value);
+        // 广播消息给所有同源窗口（如 display 页面）
+        window.postMessage({ vantaBgType: vantaBgSelect.value }, '*');
+    });
 }
 </script>
 </body>
