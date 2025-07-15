@@ -260,7 +260,7 @@
     </div>
 
     <!-- Debug line for Whisper recognition -->
-    <div id="debugLine" class="debug-line" style="display: none;">
+    <div id="debugLine" class="debug-line" style="display: block;">
         <span class="debug-label">Speaker:</span>
         <span id="transcribedText">No recognition yet...</span>
     </div>
@@ -305,21 +305,19 @@
                         }
                     }
                     // 关键词弹窗
-                    const keywordOverlay = document.getElementById('keywordOverlay');
-                    if (data.keyword) {
-                        document.getElementById('keywordOriginal').textContent = data.keyword;
-                        document.getElementById('keywordTranslation').textContent = data.keyword_translation || '';
+                    if (Array.isArray(data.keywords)) {
+                        data.keywords.forEach(([keyword, translation]) => {
+                            showKeywordOverlayRandom(keyword, translation);
+                        });
+                    } else if (data.keyword) {
                         showKeywordOverlayRandom(data.keyword, data.keyword_translation);
-                        setTimeout(() => {
-                            // document.getElementById('keywordOverlay').style.display = 'none'; // 移除此行
-                        }, 3000);
-                    } else {
-                        // document.getElementById('keywordOverlay').style.display = 'none'; // 移除此行
                     }
                     // 调试行
                     if (data.transcribed_text !== undefined) {
-                        console.log('WS transcribed_text:', data.transcribed_text);
-                        document.getElementById('transcribedText').textContent = data.transcribed_text || 'No recognition yet...';
+                        const transcribedEl = document.getElementById('transcribedText');
+                        if (transcribedEl) {
+                            transcribedEl.textContent = data.transcribed_text || 'No recognition yet...';
+                        }
                         updateDebugLineVisibility();
                     }
                     // 状态指示器
@@ -329,6 +327,7 @@
                     }
                 } catch (e) {
                     // showStatus('WebSocket data error', 'error'); // 删除所有 showStatus('...', ...) 相关调用
+                    console.log('web socket data error', e);
                 }
             };
         }
@@ -405,7 +404,36 @@
 
         // 兼容原有接口：如果后端只推送一个关键词
         function showKeywordOverlayRandom(keyword, translation) {
-            addKeywordToOverlay(keyword, translation);
+            const overlay = document.getElementById('keywordOverlay');
+            if (!overlay) return;
+
+            // 创建新气泡
+            const bubble = document.createElement('div');
+            bubble.className = 'keyword-bubble';
+            bubble.innerHTML = `<div style="font-size:1.1em;font-weight:bold;">${keyword}</div><div style="font-size:0.95em;">${translation || ''}</div>`;
+
+            // 随机位置
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            const minTop = 0.05 * vh;
+            const maxTop = 0.4 * vh;
+            const minLeft = 0.1 * vw;
+            const maxLeft = 0.9 * vw;
+            const top = Math.random() * (maxTop - minTop) + minTop;
+            const left = Math.random() * (maxLeft - minLeft) + minLeft;
+            bubble.style.top = `${top}px`;
+            bubble.style.left = `${left}px`;
+            bubble.style.position = 'fixed';
+
+            // 队列管理
+            keywordQueue.push(bubble);
+            overlay.appendChild(bubble);
+
+            if (keywordQueue.length > MAX_KEYWORDS) {
+                const firstBubble = keywordQueue.shift();
+                if (overlay.contains(firstBubble)) overlay.removeChild(firstBubble);
+            }
+            // 不再自动消失
         }
 
         // 控制 debugLine 显示/隐藏的函数

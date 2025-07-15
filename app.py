@@ -156,34 +156,24 @@ def similarity(a, b):
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
 def find_best_match(transcribed_text, threshold=None):
-    """Find the best matching line in the script"""
     global current_line_index
-    
     if not script_en:
         return -1
-    
     if threshold is None:
         threshold = MATCH_THRESHOLD
-    
     best_match = -1
     best_score = 0
-    
-    # Check current line and nearby lines
-    start_idx = max(0, current_line_index - 2)
-    end_idx = min(len(script_en), current_line_index + 3)
-    
-    for i in range(start_idx, end_idx):
-        score = similarity(transcribed_text, script_en[i])
-        if score > best_score and score >= threshold:  # Threshold for matching
-            best_score = score
+    for i, line in enumerate(script_en):
+        score = similarity(transcribed_text, line)
+        # 对当前行附近加权
+        if abs(i - current_line_index) <= 2:
+            score += 0.05
+        if score > best_score and score >= threshold:
             best_match = i
-    
     return best_match
 
 def detect_keywords(transcribed_text):
     """Detect keywords in transcribed text"""
-    global current_keyword, keyword_display_time
-    
     text_lower = transcribed_text.lower()
     detected_keywords = []
     
@@ -191,13 +181,7 @@ def detect_keywords(transcribed_text):
         if keyword in text_lower:
             detected_keywords.append((keyword, translation))
     
-    if detected_keywords:
-        # Use the first detected keyword
-        current_keyword = detected_keywords[0]
-        keyword_display_time = time.time()
-        return current_keyword
-    
-    return None
+    return detected_keywords if detected_keywords else None
 
 def audio_callback(indata, frames, time, status):
     """Callback for audio input"""
@@ -226,13 +210,14 @@ def process_audio_buffer(buffer):
             kwargs['language'] = RECOGNITION_LANGUAGE
         result = model.transcribe(audio_data, **kwargs)
         transcribed_text = result["text"].strip()
-        if transcribed_text:
+        # 只有内容变化时才更新和打印
+        if transcribed_text and transcribed_text != current_transcribed_text:
             current_transcribed_text = transcribed_text
             print(f"[DEBUG] Whisper识别内容: {current_transcribed_text}")
             matched_line = find_best_match(transcribed_text, threshold=MATCH_THRESHOLD)
             if matched_line != -1:
                 current_line_index = matched_line
-            keyword = detect_keywords(transcribed_text)
+            keywords = detect_keywords(transcribed_text)
             try:
                 global MAIN_LOOP
                 if MAIN_LOOP and MAIN_LOOP.is_running():
@@ -241,8 +226,9 @@ def process_audio_buffer(buffer):
                         'line_index': current_line_index,
                         'english_text': script_en[current_line_index] if current_line_index < len(script_en) else '',
                         'translated_text': script_translated[current_line_index] if current_line_index < len(script_translated) else '',
-                        'keyword': keyword[0] if keyword else None,
-                        'keyword_translation': keyword[1] if keyword else None,
+                        'keywords': keywords,  # 新增：所有关键词
+                        'keyword': keywords[0][0] if keywords else None,  # 兼容单个
+                        'keyword_translation': keywords[0][1] if keywords else None,
                         'transcribed_text': current_transcribed_text
                     }), MAIN_LOOP)
             except Exception as push_err:
