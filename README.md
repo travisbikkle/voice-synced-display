@@ -1,6 +1,18 @@
-# Voice-Synced Text Display System
+<!-- demo -->
+<p align="center">
+  <img src="docs/demo1.png" alt="Demo 1" width="40%" style="margin:8px;">
+  <img src="docs/demo2.png" alt="Demo 2" width="40%" style="margin:8px;">
+  <img src="docs/demo3.png" alt="Demo 3" width="40%" style="margin:8px;">
+</p>
 
-A real-time speech recognition and subtitle display system using OpenAI Whisper. Ideal for presentations, conferences, and multilingual events.
+# Voice-Synced Text Display
+
+This project is a real-time speech recognition and subtitle/keyword popup display system based on Whisper, suitable for scenarios such as presentations, meetings, and teaching.
+
+- Supports real-time speech-to-text with automatic script line synchronization
+- Detects keywords and highlights them as bubble popups, with smart avoidance for multiple keywords
+- Provides multiple similarity algorithms for highly synchronized subtitles and speech
+- Management panel allows flexible configuration of scripts, keywords, models, and more
 
 ---
 

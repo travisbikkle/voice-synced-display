@@ -407,33 +407,62 @@
             const overlay = document.getElementById('keywordOverlay');
             if (!overlay) return;
 
+            // 去重：如果已有相同关键词的气泡，直接返回
+            for (const b of keywordQueue) {
+                if (b.dataset && b.dataset.keyword === keyword) {
+                    return;
+                }
+            }
+
             // 创建新气泡
             const bubble = document.createElement('div');
             bubble.className = 'keyword-bubble';
+            bubble.dataset.keyword = keyword;
             bubble.innerHTML = `<div style="font-size:1.1em;font-weight:bold;">${keyword}</div><div style="font-size:0.95em;">${translation || ''}</div>`;
+            bubble.style.position = 'fixed';
+            bubble.style.visibility = 'hidden'; // 先隐藏，后面测量尺寸
+            overlay.appendChild(bubble);
 
-            // 随机位置
+            // 智能避让：尝试最多10次，找到不重叠的位置
             const vw = window.innerWidth;
             const vh = window.innerHeight;
             const minTop = 0.05 * vh;
             const maxTop = 0.4 * vh;
             const minLeft = 0.1 * vw;
             const maxLeft = 0.9 * vw;
-            const top = Math.random() * (maxTop - minTop) + minTop;
-            const left = Math.random() * (maxLeft - minLeft) + minLeft;
+            let found = false;
+            let top, left;
+            for (let attempt = 0; attempt < 10; attempt++) {
+                top = Math.random() * (maxTop - minTop) + minTop;
+                left = Math.random() * (maxLeft - minLeft) + minLeft;
+                bubble.style.top = `${top}px`;
+                bubble.style.left = `${left}px`;
+                // 检查与现有气泡是否重叠
+                const rect1 = bubble.getBoundingClientRect();
+                let overlap = false;
+                for (const b of keywordQueue) {
+                    const rect2 = b.getBoundingClientRect();
+                    if (!(rect1.right < rect2.left || rect1.left > rect2.right || rect1.bottom < rect2.top || rect1.top > rect2.bottom)) {
+                        overlap = true;
+                        break;
+                    }
+                }
+                if (!overlap) {
+                    found = true;
+                    break;
+                }
+            }
+            // 如果10次都没找到不重叠的，就用最后一次的位置
             bubble.style.top = `${top}px`;
             bubble.style.left = `${left}px`;
-            bubble.style.position = 'fixed';
+            bubble.style.visibility = '';
 
             // 队列管理
             keywordQueue.push(bubble);
-            overlay.appendChild(bubble);
-
             if (keywordQueue.length > MAX_KEYWORDS) {
                 const firstBubble = keywordQueue.shift();
                 if (overlay.contains(firstBubble)) overlay.removeChild(firstBubble);
             }
-            // 不再自动消失
         }
 
         // 控制 debugLine 显示/隐藏的函数
