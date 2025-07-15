@@ -511,6 +511,20 @@
           padding: 0.5rem 1.2rem;
           font-size: 0.75rem !important;
         }
+        /* 在样式区补充 spinner-border 动画 */
+        .spinner-border {
+          display: inline-block;
+          width: 1em;
+          height: 1em;
+          vertical-align: text-bottom;
+          border: 0.15em solid currentColor;
+          border-right-color: transparent;
+          border-radius: 50%;
+          animation: spinner-border 0.75s linear infinite;
+        }
+        @keyframes spinner-border {
+          100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -1110,12 +1124,35 @@
 
         // System controls
         async function startListening() {
-            try {
-                const response = await fetch('/api/start-listening', { method: 'POST' });
-                const data = await response.json();
-                showStatus(data.message, data.success ? 'success' : 'error');
-            } catch (error) {
-                showStatus('Error starting listening: ' + error.message, 'error');
+            const btn = document.querySelector('button[onclick="startListening()"]');
+            if (btn) {
+                btn.disabled = true;
+                const oldHtml = btn.innerHTML;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="margin-right:6px;vertical-align:-2px;"></span>Starting...';
+                try {
+                    const response = await fetch('/api/start-listening', { method: 'POST' });
+                    const data = await response.json();
+                    showStatus(data.message, data.success ? 'success' : 'error');
+                    // 按照弹窗显示时长延迟按钮恢复
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = oldHtml;
+                    }, 1200); // 与 showStatus 自动消失时间保持一致或略短
+                } catch (error) {
+                    showStatus('Error starting listening: ' + error.message, 'error');
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerHTML = oldHtml;
+                    }, 1200);
+                }
+            } else {
+                try {
+                    const response = await fetch('/api/start-listening', { method: 'POST' });
+                    const data = await response.json();
+                    showStatus(data.message, data.success ? 'success' : 'error');
+                } catch (error) {
+                    showStatus('Error starting listening: ' + error.message, 'error');
+                }
             }
         }
 

@@ -56,10 +56,10 @@
             pointer-events: none;
         }
 
-        .main-text.rtl {
+        /* .main-text.rtl {
             direction: rtl;
             text-align: right;
-        }
+        } */
 
         .status-indicator {
             position: absolute;
@@ -204,6 +204,26 @@
             margin-right: 10px;
         }
 
+        .keyword-overlay-container {
+            position: fixed;
+            left: 0; top: 0; width: 100vw; height: 100vh;
+            pointer-events: none;
+            z-index: 9999;
+        }
+        .keyword-bubble {
+            background: rgba(255,255,0,0.95);
+            color: #222;
+            border-radius: 20px;
+            padding: 10px 24px;
+            font-size: 1.5em;
+            font-weight: bold;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+            pointer-events: none;
+            position: fixed;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+
         @media (max-width: 768px) {
             .main-text {
                 font-size: 2.5rem;
@@ -235,10 +255,7 @@
             <div class="loading">Loading...</div>
         </div>
         
-        <div id="keywordOverlay" class="keyword-overlay" style="display: none;">
-            <div class="keyword-original" id="keywordOriginal"></div>
-            <div class="keyword-translation" id="keywordTranslation"></div>
-        </div>
+        <div id="keywordOverlay" class="keyword-overlay-container"></div>
         
     </div>
 
@@ -273,6 +290,7 @@
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('WS DATA:', data);
                     // 主显示区
                     if (data.translated_text !== undefined) {
                         const mainTextDiv = document.getElementById('mainText');
@@ -291,15 +309,16 @@
                     if (data.keyword) {
                         document.getElementById('keywordOriginal').textContent = data.keyword;
                         document.getElementById('keywordTranslation').textContent = data.keyword_translation || '';
-                        showKeywordOverlayRandom();
+                        showKeywordOverlayRandom(data.keyword, data.keyword_translation);
                         setTimeout(() => {
-                            document.getElementById('keywordOverlay').style.display = 'none';
+                            // document.getElementById('keywordOverlay').style.display = 'none'; // 移除此行
                         }, 3000);
                     } else {
-                        document.getElementById('keywordOverlay').style.display = 'none';
+                        // document.getElementById('keywordOverlay').style.display = 'none'; // 移除此行
                     }
                     // 调试行
                     if (data.transcribed_text !== undefined) {
+                        console.log('WS transcribed_text:', data.transcribed_text);
                         document.getElementById('transcribedText').textContent = data.transcribed_text || 'No recognition yet...';
                         updateDebugLineVisibility();
                     }
@@ -342,22 +361,51 @@
             } catch (e) {}
         }, 5000);
 
-        // 关键词弹窗随机上方出现，不遮挡字幕
-        function showKeywordOverlayRandom() {
+        const MAX_KEYWORDS = 3;
+        let keywordQueue = [];
+
+        function addKeywordToOverlay(keyword, translation) {
             const overlay = document.getElementById('keywordOverlay');
             if (!overlay) return;
-            // 屏幕宽高
+
+            // 创建新气泡
+            const bubble = document.createElement('div');
+            bubble.className = 'keyword-bubble';
+            bubble.textContent = translation || keyword;
+
+            // 随机位置
             const vw = window.innerWidth;
             const vh = window.innerHeight;
-            // 气泡尺寸
-            overlay.style.display = 'block';
-            overlay.style.left = '50%';
-            overlay.style.transform = 'translate(-50%, 0)';
-            // 随机 top，范围 5%~40%（不遮挡底部字幕）
             const minTop = 0.05 * vh;
             const maxTop = 0.4 * vh;
+            const minLeft = 0.1 * vw;
+            const maxLeft = 0.9 * vw;
             const top = Math.random() * (maxTop - minTop) + minTop;
-            overlay.style.top = `${top}px`;
+            const left = Math.random() * (maxLeft - minLeft) + minLeft;
+            bubble.style.top = `${top}px`;
+            bubble.style.left = `${left}px`;
+
+            // 队列管理
+            keywordQueue.push(bubble);
+            overlay.appendChild(bubble);
+
+            if (keywordQueue.length > MAX_KEYWORDS) {
+                const firstBubble = keywordQueue.shift();
+                if (overlay.contains(firstBubble)) overlay.removeChild(firstBubble);
+            }
+
+            // 3秒后自动消失
+            setTimeout(() => {
+                if (overlay.contains(bubble)) {
+                    overlay.removeChild(bubble);
+                    keywordQueue = keywordQueue.filter(b => b !== bubble);
+                }
+            }, 3000);
+        }
+
+        // 兼容原有接口：如果后端只推送一个关键词
+        function showKeywordOverlayRandom(keyword, translation) {
+            addKeywordToOverlay(keyword, translation);
         }
 
         // 控制 debugLine 显示/隐藏的函数

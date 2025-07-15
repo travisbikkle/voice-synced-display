@@ -228,6 +228,7 @@ def process_audio_buffer(buffer):
         transcribed_text = result["text"].strip()
         if transcribed_text:
             current_transcribed_text = transcribed_text
+            print(f"[DEBUG] Whisper识别内容: {current_transcribed_text}")
             matched_line = find_best_match(transcribed_text, threshold=MATCH_THRESHOLD)
             if matched_line != -1:
                 current_line_index = matched_line
