@@ -52,7 +52,29 @@ python -c "import torch; print(torch.__version__, torch.cuda.is_available(), tor
 
 ### 7. Download Whisper Model
 - Web Admin Panel: Start the app, open http://localhost:8080/admin, go to "Models" tab, and download the desired model.
-- Or command line: `python download_whisper_models.py --model base`
+- Or command line: 
+   ```bash
+   python download_whisper_models.py --model base
+   python download_whisper_models.py --model small --cache-dir E:/AIModels
+   `
+
+## Whisper Model Direct Download Links (Hugging Face)
+
+If automatic model download fails, you can manually download the model files, place them in your cache directory and rename them seperately(see model list in admin panel). Here are the direct Hugging Face links for each model:
+
+- tiny:      https://huggingface.co/openai/whisper-tiny/resolve/main/model.pt
+- tiny.en:   https://huggingface.co/openai/whisper-tiny.en/resolve/main/model.pt
+- base:      https://huggingface.co/openai/whisper-base/resolve/main/model.pt
+- base.en:   https://huggingface.co/openai/whisper-base.en/resolve/main/model.pt
+- small:     https://huggingface.co/openai/whisper-small/resolve/main/model.pt
+- small.en:  https://huggingface.co/openai/whisper-small.en/resolve/main/model.pt
+- medium:    https://huggingface.co/openai/whisper-medium/resolve/main/model.pt
+- medium.en: https://huggingface.co/openai/whisper-medium.en/resolve/main/model.pt
+- large-v1:  https://huggingface.co/openai/whisper-large-v1/resolve/main/model.pt
+- large-v2:  https://huggingface.co/openai/whisper-large-v2/resolve/main/model.pt
+- large-v3:  https://huggingface.co/openai/whisper-large-v3/resolve/main/model.pt
+
+After downloading, rename the file to match the model name (e.g., `small.pt`) and place it in your model cache directory.
 
 ## Recommended Startup
 

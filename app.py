@@ -292,16 +292,31 @@ def start_listening():
         try:
             # Get device ID - use selected device or default device
             device_id = selected_device_id
-            if device_id is None:
-                # Use system default input device
-                default_device = sd.default.device[0]  # Get default input device
-                device_id = default_device
-                print(f"No device selected, using system default input device: {device_id}")
-            else:
-                print(f"Using selected device: {device_id}")
-            
-            # Get device info for logging
             devices = sd.query_devices()
+            # 新增：如果 id 不在设备列表，尝试用 name 匹配
+            if device_id is not None:
+                if not (0 <= device_id < len(devices)):
+                    # 尝试用 name 匹配
+                    try:
+                        from app import selected_device_name
+                    except ImportError:
+                        selected_device_name = None
+                    if selected_device_name:
+                        for i, d in enumerate(devices):
+                            if d['name'] == selected_device_name:
+                                device_id = i
+                                selected_device_id = i
+                                print(f"Fallback to device by name: {selected_device_name} (id={i})")
+                                break
+                        else:
+                            print(f"Device name {selected_device_name} not found, fallback to system default")
+                            device_id = sd.default.device[0]
+                            selected_device_id = None
+                # id 合法
+            else:
+                # None 表示系统默认
+                device_id = sd.default.device[0]
+            # Get device info for logging
             if 0 <= device_id < len(devices):
                 device_name = devices[device_id]['name']
                 print(f"Starting audio stream on device {device_id}: {device_name}")
@@ -527,22 +542,22 @@ async def reset_line():
 
 @app.post("/api/set-audio-device")
 async def set_audio_device(device_data: AudioDeviceData):
-    """Set the audio input device"""
     global selected_device_id
-    
     try:
-        # Validate device ID
+        # 支持 device_id 为 None 或 -1，表示系统默认
+        if device_data.device_id is None or device_data.device_id == -1:
+            selected_device_id = None
+            save_config()
+            return {'success': True, 'message': 'Audio device set to system default'}
         devices = sd.query_devices()
         if device_data.device_id < 0 or device_data.device_id >= len(devices):
             return {'success': False, 'error': 'Invalid device ID'}
-        
         device = devices[device_data.device_id]
         if device['max_input_channels'] <= 0:
             return {'success': False, 'error': 'Device is not an input device'}
-        
         selected_device_id = device_data.device_id
+        save_config()
         return {'success': True, 'message': f'Audio device set to: {device["name"]}'}
-    
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
@@ -662,6 +677,14 @@ async def set_model(data: ModelData):
 def save_config():
     """Save current configuration to file"""
     try:
+        device_name = None
+        if selected_device_id is not None:
+            try:
+                devices = sd.query_devices()
+                if 0 <= selected_device_id < len(devices):
+                    device_name = devices[selected_device_id]['name']
+            except Exception:
+                pass
         config = {
             'model_cache_dir': model_cache_dir,
             'selected_model_name': selected_model_name,
@@ -669,7 +692,9 @@ def save_config():
             'recognition_language': RECOGNITION_LANGUAGE_UI,
             'audio_buffer_seconds': AUDIO_BUFFER_SECONDS,
             'silence_threshold': SILENCE_THRESHOLD,
-            'silence_duration': SILENCE_DURATION
+            'silence_duration': SILENCE_DURATION,
+            'selected_device_id': int(selected_device_id) if selected_device_id is not None else None,
+            'selected_device_name': device_name
         }
         with open('cache_config.json', 'w') as f:
             import json
@@ -677,34 +702,6 @@ def save_config():
         print(f"Configuration saved to cache_config.json")
     except Exception as e:
         print(f"⚠️ 保存配置失败: {e}")
-
-@app.post("/api/set-model-cache")
-async def set_model_cache(data: ModelCacheData):
-    """Set custom model cache directory"""
-    global model_cache_dir, model
-    
-    try:
-        import os
-        from pathlib import Path
-        
-        # Validate directory
-        cache_path = Path(data.cache_dir)
-        if not cache_path.exists():
-            cache_path.mkdir(parents=True, exist_ok=True)
-        
-        # Reset current model if changing cache directory
-        if model_cache_dir != data.cache_dir:
-            model = None
-            model_cache_dir = data.cache_dir
-            print(f"Model cache directory changed to: {model_cache_dir}")
-            
-            # Save configuration to file
-            save_config()
-        
-        return {'success': True, 'message': f'Cache directory set to {model_cache_dir}'}
-    
-    except Exception as e:
-        return {'success': False, 'error': str(e)}
 
 @app.post("/api/download-model")
 async def download_model(data: ModelData):
@@ -855,9 +852,26 @@ async def get_silence_config():
 @app.post("/api/set-config")
 async def set_config(config: dict = Body(...)):
     """统一设置配置参数（支持部分字段更新）"""
-    global MATCH_THRESHOLD, AUDIO_BUFFER_SECONDS, SILENCE_THRESHOLD, SILENCE_DURATION
+    global MATCH_THRESHOLD, AUDIO_BUFFER_SECONDS, SILENCE_THRESHOLD, SILENCE_DURATION, model_cache_dir, model
     updated = []
     errors = []
+    # model_cache_dir
+    if 'model_cache_dir' in config:
+        value = config['model_cache_dir']
+        import os
+        from pathlib import Path
+        cache_path = Path(value)
+        if not cache_path.exists():
+            try:
+                cache_path.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                errors.append(f'Failed to create cache dir: {e}')
+        if model_cache_dir != value:
+            model = None
+            model_cache_dir = value
+            updated.append('model_cache_dir')
+            print(f"Model cache directory changed to: {model_cache_dir}")
+            save_config()
     # match_threshold
     if 'match_threshold' in config:
         value = config['match_threshold']
@@ -890,7 +904,7 @@ async def set_config(config: dict = Body(...)):
             updated.append('silence_duration')
         else:
             errors.append('silence_duration must be between 0.1 and 2.0')
-    if updated:
+    if updated and 'model_cache_dir' not in updated:
         save_config()
     return {"success": len(errors) == 0, "updated": updated, "errors": errors}
 
@@ -909,9 +923,8 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 def load_cache_config():
-    """Load cache directory configuration"""
-    global model_cache_dir, selected_model_name, MATCH_THRESHOLD, RECOGNITION_LANGUAGE, AUDIO_BUFFER_SECONDS, RECOGNITION_LANGUAGE_UI, SILENCE_THRESHOLD, SILENCE_DURATION
-    
+    global model_cache_dir, selected_model_name, MATCH_THRESHOLD, RECOGNITION_LANGUAGE, AUDIO_BUFFER_SECONDS, RECOGNITION_LANGUAGE_UI, SILENCE_THRESHOLD, SILENCE_DURATION, selected_device_id
+    global selected_device_name
     try:
         import json
         if os.path.exists('cache_config.json'):
@@ -938,6 +951,17 @@ def load_cache_config():
                 if 'silence_duration' in config:
                     SILENCE_DURATION = config['silence_duration']
                     print(f"🔇 加载静音时长: {SILENCE_DURATION}")
+                # 新增设备ID和设备名
+                if 'selected_device_id' in config:
+                    val = config['selected_device_id']
+                    if val is not None:
+                        selected_device_id = int(val)
+                        print(f"🎤 加载音频设备ID: {selected_device_id}")
+                    else:
+                        selected_device_id = None
+                if 'selected_device_name' in config:
+                    selected_device_name = config['selected_device_name']
+                    print(f"🎤 加载音频设备名: {selected_device_name}")
     except Exception as e:
         print(f"⚠️ 加载缓存配置失败: {e}")
 
@@ -967,6 +991,13 @@ async def startup_event():
 def get_torch_device():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     return {"device": device}
+
+@app.get("/api/audio-device-config")
+async def get_audio_device_config():
+    return {
+        "selected_device_id": selected_device_id,
+        "selected_device_name": selected_device_name if 'selected_device_name' in globals() else None
+    }
 
 if __name__ == "__main__":
     import uvicorn

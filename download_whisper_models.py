@@ -32,7 +32,6 @@ def check_existing_models(cache_dir=None):
     return existing_models
 
 def download_model_by_name(model_name, cache_dir=None, quiet=False):
-    import app  # 导入app以访问download_progress
     from pathlib import Path
     cache_dir_path = Path(cache_dir) if cache_dir else None
     if cache_dir_path:
@@ -43,18 +42,18 @@ def download_model_by_name(model_name, cache_dir=None, quiet=False):
     model_file = (cache_dir_path / f"{model_name}.pt") if cache_dir_path else None
     if model_file and model_file.exists():
         size_mb = model_file.stat().st_size / (1024 * 1024)
-        if not quiet:
-            print(f"   ✅ 模型已存在 ({size_mb:.1f}MB)")
-        return True
+        if size_mb < 1.0:
+            # 文件太小，视为无效，删除
+            if not quiet:
+                print(f"   ⚠️ 检测到异常模型文件（{size_mb:.2f}MB），自动删除重新下载")
+            model_file.unlink()
+        else:
+            if not quiet:
+                print(f"   ✅ 模型已存在 ({size_mb:.1f}MB)")
+            return True
     try:
         if not quiet:
             print(f"   ⏳ 正在下载...")
-        # 检查是否被要求中断
-        if hasattr(app, 'download_progress') and model_name in app.download_progress:
-            if app.download_progress[model_name].get('status') == 'stopping':
-                if not quiet:
-                    print(f"   ⏹️ 用户中断下载")
-                return False
         import whisper
         if cache_dir_path:
             whisper.load_model(model_name, download_root=str(cache_dir_path))
@@ -62,6 +61,11 @@ def download_model_by_name(model_name, cache_dir=None, quiet=False):
             whisper.load_model(model_name)
         if model_file and model_file.exists():
             size_mb = model_file.stat().st_size / (1024 * 1024)
+            if size_mb < 1.0:
+                if not quiet:
+                    print(f"   ❌ 下载失败，文件过小（{size_mb:.2f}MB），自动删除")
+                model_file.unlink()
+                return False
             if not quiet:
                 print(f"   ✅ 下载完成 ({size_mb:.1f}MB)")
             return True
@@ -71,15 +75,20 @@ def download_model_by_name(model_name, cache_dir=None, quiet=False):
             default_file = Path.home() / ".cache" / "whisper" / f"{model_name}.pt"
             if default_file.exists():
                 size_mb = default_file.stat().st_size / (1024 * 1024)
+                if size_mb < 1.0:
+                    if not quiet:
+                        print(f"   ❌ 下载失败，文件过小（{size_mb:.2f}MB），自动删除")
+                    default_file.unlink()
+                    return False
                 if not quiet:
                     print(f"   ✅ 下载完成 ({size_mb:.1f}MB)")
                 return True
-        if not quiet:
-            print(f"   ❌ 下载失败")
         return False
     except Exception as e:
+        if model_file and model_file.exists():
+            model_file.unlink()
         if not quiet:
-            print(f"   ❌ 下载失败: {e}")
+            print(f"   ❌ 下载出错: {e}")
         return False
 
 def main():

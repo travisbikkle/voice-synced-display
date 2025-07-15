@@ -236,7 +236,7 @@
 
     <!-- Debug line for Whisper recognition -->
     <div id="debugLine" class="debug-line" style="display: none;">
-        <span class="debug-label">Whisper:</span>
+        <span class="debug-label">Speaker:</span>
         <span id="transcribedText">No recognition yet...</span>
     </div>
 
@@ -293,7 +293,7 @@
                     // 调试行
                     if (data.transcribed_text !== undefined) {
                         document.getElementById('transcribedText').textContent = data.transcribed_text || 'No recognition yet...';
-                        document.getElementById('debugLine').style.display = 'block';
+                        updateDebugLineVisibility();
                     }
                     // 状态指示器
                     if (data.listening !== undefined) {
@@ -351,6 +351,24 @@
             const top = Math.random() * (maxTop - minTop) + minTop;
             overlay.style.top = `${top}px`;
         }
+
+        // 控制 debugLine 显示/隐藏的函数
+        function updateDebugLineVisibility(forceHide = false) {
+            const debugLine = document.getElementById('debugLine');
+            const visible = localStorage.getItem('debugLineVisible');
+            if (forceHide || visible === 'false') {
+                debugLine.style.display = 'none';
+            } else {
+                debugLine.style.display = 'block';
+            }
+        }
+
+        // 页面加载时也要根据 localStorage 设置 debugLine
+        updateDebugLineVisibility();
+        // 监听 localStorage 变化（多标签页同步）
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'debugLineVisible') updateDebugLineVisibility();
+        });
     </script>
 </body>
 </html> 

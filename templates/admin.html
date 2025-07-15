@@ -503,6 +503,14 @@
                 margin-bottom: 0.5rem;
             }
         }
+
+        /* ...原有样式... */
+        .btn.btn-primary[onclick*="downloadAllModels"] {
+          min-width: 160px !important;
+          white-space: normal !important;
+          padding: 0.5rem 1.2rem;
+          font-size: 0.75rem !important;
+        }
     </style>
 </head>
 <body>
@@ -606,18 +614,19 @@
             <div class="controls-section">
                 <table style="width:100%;border-collapse:separate;border-spacing:0 0.5rem;">
                     <tr>
+                        <td style="min-width:180px;font-weight:bold;">Model Cache Directory:</td>
+                        <td colspan="2"><input type="text" id="cacheDir" class="form-control" placeholder="Leave empty for default (~/.cache/whisper)" style="width:100%;"></td>
+                    </tr>
+                    <tr>
                         <td style="min-width:180px;font-weight:bold;">Model:</td>
                         <td style="width:100%">
                             <select id="modelSelect" class="form-control" style="max-width:220px;min-width:160px;display:inline-block;margin-right:1.2rem;"></select>
                         </td>
-                        <td style="min-width:320px;">
+                        <td style="min-width:320px;display:flex;align-items:center;gap:0.5rem;">
+                            <button id="refreshModelsBtn" class="btn btn-secondary" style="padding:0.5rem 1.2rem;min-width:90px;height:2.2rem;font-size:1rem;" onclick="loadModels(true)">Refresh</button>
                             <button id="downloadModelBtn" class="btn btn-success" onclick="downloadSelectedModel()" disabled style="margin-right:1rem;padding:0.5rem 1.2rem;min-width:110px;height:2.2rem;font-size:1rem;">Download</button>
-                            <button class="btn btn-primary" onclick="downloadAllModels()" style="padding:0.5rem 1.2rem;min-width:110px;height:2.2rem;font-size:1rem;">Download All Models</button>
+                            <button class="btn btn-primary" onclick="downloadAllModels()" style="padding:0.5rem 1.2rem;min-width:160px;height:2.2rem;font-size:1rem;white-space:normal;">Download All Models</button>
                         </td>
-                    </tr>
-                    <tr>
-                        <td style="min-width:180px;font-weight:bold;">Model Cache Directory:</td>
-                        <td colspan="2"><input type="text" id="cacheDir" class="form-control" placeholder="Leave empty for default (~/.cache/whisper)" style="width:100%;"></td>
                     </tr>
                     <tr>
                         <td style="min-width:220px;font-weight:bold;">
@@ -730,6 +739,16 @@
                     <p><strong>Total Lines:</strong> <span id="totalLinesText">-</span></p>
                 </div>
             </div>
+
+            <div class="controls-section">
+                <h3>Debug</h3>
+                <div class="form-group">
+                    <label style="display:flex;align-items:center;gap:0.5rem;font-weight:bold;">
+                        <input type="checkbox" id="toggleDebugLine" checked style="width:1.2em;height:1.2em;">
+                        Show real time recognition at bottom (Speaker:)
+                    </label>
+                </div>
+            </div>
         </div>
 
         <div id="statusMessage"></div>
@@ -775,8 +794,9 @@
                 const data = await response.json();
                 const select = document.getElementById('audioDevice');
                 const prevValue = select.value;
+                // 新增：系统默认设备选项
+                select.innerHTML = '<option value="-1">System Default Device</option>';
                 if (data.success) {
-                    select.innerHTML = '<option value="">Select audio device...</option>';
                     if (data.devices.length === 0) {
                         showStatus('No audio input devices found!', 'error');
                     } else {
@@ -784,12 +804,39 @@
                             const option = document.createElement('option');
                             option.value = device.id;
                             option.textContent = `${device.name} (${device.channels} channels, ${device.sample_rate}Hz)`;
-                            if (prevValue && prevValue == device.id) option.selected = true;
                             select.appendChild(option);
                         });
                     }
                 } else {
                     showStatus('Error loading audio devices: ' + data.error, 'error');
+                }
+                // 新增：根据后端配置自动选中
+                let configResp = await fetch('/api/audio-device-config');
+                if (configResp.ok) {
+                    let config = await configResp.json();
+                    let selId = (config.selected_device_id !== undefined && config.selected_device_id !== null) ? String(config.selected_device_id) : "-1";
+                    let found = false;
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value === selId) {
+                            select.selectedIndex = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found && config.selected_device_name) {
+                        for (let i = 0; i < select.options.length; i++) {
+                            if (select.options[i].text.includes(config.selected_device_name)) {
+                                select.selectedIndex = i;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!found) {
+                        select.value = "-1";
+                    }
+                } else {
+                    select.value = "-1";
                 }
             } catch (error) {
                 showStatus('Error loading audio devices: ' + error.message, 'error');
@@ -802,21 +849,20 @@
 
         async function setAudioDevice() {
             const select = document.getElementById('audioDevice');
-            const deviceId = select.value;
-            
-            if (!deviceId) {
-                return;
+            let deviceId = select.value;
+            if (deviceId === "-1" || deviceId === "") {
+                deviceId = null; // 发送 null 让后端用系统默认
+            } else {
+                deviceId = parseInt(deviceId);
             }
-            
             try {
                 const response = await fetch('/api/set-audio-device', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ device_id: parseInt(deviceId) })
+                    body: JSON.stringify({ device_id: deviceId })
                 });
-                
                 const data = await response.json();
                 showStatus(data.message, data.success ? 'success' : 'error');
             } catch (error) {
@@ -1159,22 +1205,32 @@
         });
 
         // Model management functions
-        async function loadModels() {
+        async function loadModels(keepSelection = true) {
             try {
                 const response = await fetch('/api/whisper-models');
                 const data = await response.json();
                 const modelSelect = document.getElementById('modelSelect');
                 const downloadModelBtn = document.getElementById('downloadModelBtn');
+                // 记住用户当前选择
+                let prevValue = keepSelection ? modelSelect.value : '';
                 modelSelect.innerHTML = '<option value="">Select model...</option>';
                 downloadModelBtn.disabled = true;
+                let foundPrev = false;
                 data.models.forEach(model => {
                     const status = model.downloaded ? '✅' : '❌';
                     const size = model.size_mb ? ` (${model.size_mb}MB)` : '';
                     const estimatedSize = model.estimated_size_gb ? ` (~${model.estimated_size_gb}GB)` : '';
                     const current = model.current ? ' (Current)' : '';
                     const displaySize = model.downloaded ? size : estimatedSize;
-                    modelSelect.innerHTML += `<option value="${model.name}" ${model.current ? 'selected' : ''}>${status} ${model.name}${displaySize}${current}</option>`;
+                    const selected = (prevValue && model.name === prevValue) || (!prevValue && model.current);
+                    if (selected) foundPrev = true;
+                    modelSelect.innerHTML += `<option value="${model.name}"${selected ? ' selected' : ''}>${status} ${model.name}${displaySize}${current}</option>`;
                 });
+                // 如果用户原选择的模型不在新列表，fallback到current_model
+                if (prevValue && !foundPrev) {
+                    const currentModel = data.current_model;
+                    if (currentModel) modelSelect.value = currentModel;
+                }
                 modelSelect.onchange = function() {
                     const selected = modelSelect.value;
                     const found = data.models.find(m => m.name === selected);
@@ -1232,7 +1288,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ cache_dir: cacheDir || '~/.cache/whisper' })
+                    body: JSON.stringify({ model_cache_dir: cacheDir || '~/.cache/whisper' })
                 });
                 
                 const data = await response.json();
@@ -1502,23 +1558,85 @@
             scriptDirty = false;
         }
 
-        function downloadSelectedModel() {
-  const modelSelect = document.getElementById('modelSelect');
-  const selectedModel = modelSelect.value;
-  if (!selectedModel) return;
-  fetch('/api/download-model', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model_name: selectedModel })
-  }).then(resp => resp.json()).then(data => {
-    if (data.success) {
-      showStatus('Download started for ' + selectedModel, 'success');
-      loadModels();
-    } else {
-      showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
-    }
-  });
-}
+        // 修正 loadModels 保持用户选择
+        async function loadModels(keepSelection = true) {
+            try {
+                const response = await fetch('/api/whisper-models');
+                const data = await response.json();
+                const modelSelect = document.getElementById('modelSelect');
+                const downloadModelBtn = document.getElementById('downloadModelBtn');
+                // 记住用户当前选择
+                let prevValue = keepSelection ? modelSelect.value : '';
+                modelSelect.innerHTML = '<option value="">Select model...</option>';
+                downloadModelBtn.disabled = true;
+                let foundPrev = false;
+                data.models.forEach(model => {
+                    const status = model.downloaded ? '✅' : '❌';
+                    const size = model.size_mb ? ` (${model.size_mb}MB)` : '';
+                    const estimatedSize = model.estimated_size_gb ? ` (~${model.estimated_size_gb}GB)` : '';
+                    const current = model.current ? ' (Current)' : '';
+                    const displaySize = model.downloaded ? size : estimatedSize;
+                    const selected = (prevValue && model.name === prevValue) || (!prevValue && model.current);
+                    if (selected) foundPrev = true;
+                    modelSelect.innerHTML += `<option value="${model.name}"${selected ? ' selected' : ''}>${status} ${model.name}${displaySize}${current}</option>`;
+                });
+                // 如果用户原选择的模型不在新列表，fallback到current_model
+                if (prevValue && !foundPrev) {
+                    const currentModel = data.current_model;
+                    if (currentModel) modelSelect.value = currentModel;
+                }
+                modelSelect.onchange = function() {
+                    const selected = modelSelect.value;
+                    const found = data.models.find(m => m.name === selected);
+                    if (selected && found && !found.downloaded) {
+                        downloadModelBtn.disabled = false;
+                    } else {
+                        downloadModelBtn.disabled = true;
+                    }
+                };
+                setTimeout(() => { modelSelect.onchange(); }, 0);
+            } catch (error) {
+                showStatus('Error loading models: ' + error.message, 'error');
+            }
+        }
+
+        // 修正下载模型逻辑，显示进度并保持下拉框不抖动
+        async function downloadSelectedModel() {
+            const modelSelect = document.getElementById('modelSelect');
+            const selectedModel = modelSelect.value;
+            if (!selectedModel) return;
+            showDownloadProgress(selectedModel);
+            try {
+                const response = await fetch('/api/download-model', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_name: selectedModel })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    monitorDownloadProgress(selectedModel);
+                    // 下载完成后再刷新模型列表
+                    await waitForDownloadComplete(selectedModel);
+                    await loadModels(true); // 保持用户选择
+                } else {
+                    showStatus('Error: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showStatus('Error: ' + error.message, 'error');
+            }
+        }
+
+        // DebugLine 显示开关逻辑
+        const debugCheckbox = document.getElementById('toggleDebugLine');
+        // 初始化：读取 localStorage
+        if (localStorage.getItem('debugLineVisible') === 'false') {
+            debugCheckbox.checked = false;
+        } else {
+            debugCheckbox.checked = true;
+        }
+        debugCheckbox.addEventListener('change', function() {
+            localStorage.setItem('debugLineVisible', debugCheckbox.checked ? 'true' : 'false');
+        });
     </script>
 <script>
 function setDefaultSilenceConfig() {
@@ -1676,12 +1794,16 @@ window.addEventListener('DOMContentLoaded', function() {
       console.warn('获取 cache_dir 失败，使用默认值兜底', e);
     });
 
-    // 自动保存逻辑：输入后延迟1秒自动保存
+    // 优化自动保存逻辑
     cacheInput.addEventListener('input', function() {
       if (cacheDirTimer) clearTimeout(cacheDirTimer);
       cacheDirTimer = setTimeout(() => {
-        setCacheDir(); // 调用已有的保存函数
-      }, 1000);
+        setCacheDir();
+      }, 1500);
+    });
+    cacheInput.addEventListener('blur', function() {
+      if (cacheDirTimer) clearTimeout(cacheDirTimer);
+      setCacheDir();
     });
   }
 
