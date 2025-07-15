@@ -1116,10 +1116,23 @@
                 dirtyDiv.parentNode.insertBefore(statusDiv, dirtyDiv);
             }
             statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
-            
+            statusDiv.style.display = 'block';
+            // 新增：底部浮动样式
+            statusDiv.style.position = 'fixed';
+            statusDiv.style.left = '50%';
+            statusDiv.style.bottom = '32px';
+            statusDiv.style.transform = 'translateX(-50%)';
+            statusDiv.style.zIndex = '9999';
+            statusDiv.style.width = 'auto';
+            statusDiv.style.maxWidth = '80vw';
+            statusDiv.style.minWidth = '180px';
+            statusDiv.style.pointerEvents = 'none';
+            statusDiv.style.background = 'none';
+            statusDiv.style.boxShadow = 'none';
+            // 自动消失
             setTimeout(() => {
-                statusDiv.innerHTML = '';
-            }, 5000);
+                statusDiv.style.display = 'none';
+            }, 3000);
         }
 
         // File upload drag and drop
@@ -1214,20 +1227,18 @@
             const cacheDir = document.getElementById('cacheDir').value.trim();
             
             try {
-                const response = await fetch('/api/set-model-cache', {
+                const response = await fetch('/api/set-config', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        cache_dir: cacheDir || '~/.cache/whisper'
-                    })
+                    body: JSON.stringify({ cache_dir: cacheDir || '~/.cache/whisper' })
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    showStatus(data.message, 'success');
+                    showStatus('Model cache directory saved.', 'success');
                     loadModels(); // Refresh the model list
                 } else {
                     showStatus('Error setting cache directory: ' + data.error, 'error');
@@ -1608,15 +1619,15 @@ window.addEventListener('DOMContentLoaded', function() {
   if (select) {
     // 绑定自动保存
     select.addEventListener('change', function() {
-      fetch('/api/set-recognition-language', {
+      fetch('/api/set-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language: select.value })
+        body: JSON.stringify({ recognition_language: select.value })
       }).then(resp => resp.json()).then(data => {
         if (data.success) {
           showStatus('Recognition language saved: ' + (select.value === 'auto' ? 'Auto Detect' : select.selectedOptions[0].text), 'success');
         } else {
-          showStatus('Save failed: ' + (data.error || 'Unknown error'), 'error');
+          showStatus('Save failed: ' + (data.errors?.join('; ') || 'Unknown error'), 'error');
         }
       }).catch(e => {
         showStatus('Save failed: ' + e.message, 'error');
@@ -1645,6 +1656,7 @@ window.addEventListener('DOMContentLoaded', function() {
 // 设置Model Cache Directory默认值和兜底逻辑
 window.addEventListener('DOMContentLoaded', function() {
   const cacheInput = document.getElementById('cacheDir');
+  let cacheDirTimer = null;
   if (cacheInput) {
     // 加载默认值
     fetch('/api/whisper-models').then(resp => resp.json()).then(data => {
@@ -1662,6 +1674,114 @@ window.addEventListener('DOMContentLoaded', function() {
     }).catch((e) => {
       cacheInput.value = '~/.cache/whisper';
       console.warn('获取 cache_dir 失败，使用默认值兜底', e);
+    });
+
+    // 自动保存逻辑：输入后延迟1秒自动保存
+    cacheInput.addEventListener('input', function() {
+      if (cacheDirTimer) clearTimeout(cacheDirTimer);
+      cacheDirTimer = setTimeout(() => {
+        setCacheDir(); // 调用已有的保存函数
+      }, 1000);
+    });
+  }
+
+  // Similarity Threshold (matchThreshold)
+  const matchSlider = document.getElementById('matchThreshold');
+  let matchThresholdTimer = null;
+  if (matchSlider) {
+    matchSlider.addEventListener('input', function() {
+      if (matchThresholdTimer) clearTimeout(matchThresholdTimer);
+      matchThresholdTimer = setTimeout(() => {
+        const value = parseFloat(matchSlider.value);
+        fetch('/api/set-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ match_threshold: value })
+        }).then(resp => resp.json()).then(data => {
+          if (data.success) {
+            showStatus('Saved successfully.', 'success');
+          } else {
+            showStatus('Save failed: ' + (data.errors?.join('; ') || 'Unknown error'), 'error');
+          }
+        }).catch(e => {
+          showStatus('Save failed: ' + e.message, 'error');
+        });
+      }, 1000);
+    });
+  }
+
+  // Audio Buffer Length (audioBufferSeconds)
+  const bufferSlider = document.getElementById('audioBufferSeconds');
+  let bufferSecondsTimer = null;
+  if (bufferSlider) {
+    bufferSlider.addEventListener('input', function() {
+      if (bufferSecondsTimer) clearTimeout(bufferSecondsTimer);
+      bufferSecondsTimer = setTimeout(() => {
+        const value = parseFloat(bufferSlider.value);
+        fetch('/api/set-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio_buffer_seconds: value })
+        }).then(resp => resp.json()).then(data => {
+          if (data.success) {
+            showStatus('Saved successfully.', 'success');
+          } else {
+            showStatus('Save failed: ' + (data.errors?.join('; ') || 'Unknown error'), 'error');
+          }
+        }).catch(e => {
+          showStatus('Save failed: ' + e.message, 'error');
+        });
+      }, 1000);
+    });
+  }
+
+  // Silence Threshold (silenceThreshold)
+  const silenceThresholdInput = document.getElementById('silenceThreshold');
+  let silenceThresholdTimer = null;
+  if (silenceThresholdInput) {
+    silenceThresholdInput.addEventListener('input', function() {
+      if (silenceThresholdTimer) clearTimeout(silenceThresholdTimer);
+      silenceThresholdTimer = setTimeout(() => {
+        const value = parseFloat(silenceThresholdInput.value);
+        fetch('/api/set-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ silence_threshold: value })
+        }).then(resp => resp.json()).then(data => {
+          if (data.success) {
+            showStatus('Saved successfully.', 'success');
+          } else {
+            showStatus('Save failed: ' + (data.errors?.join('; ') || 'Unknown error'), 'error');
+          }
+        }).catch(e => {
+          showStatus('Save failed: ' + e.message, 'error');
+        });
+      }, 1000);
+    });
+  }
+
+  // Silence Duration (silenceDuration)
+  const silenceDurationInput = document.getElementById('silenceDuration');
+  let silenceDurationTimer = null;
+  if (silenceDurationInput) {
+    silenceDurationInput.addEventListener('input', function() {
+      if (silenceDurationTimer) clearTimeout(silenceDurationTimer);
+      silenceDurationTimer = setTimeout(() => {
+        const value = parseFloat(silenceDurationInput.value);
+        fetch('/api/set-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ silence_duration: value })
+        }).then(resp => resp.json()).then(data => {
+          if (data.success) {
+            showStatus('Saved successfully.', 'success');
+          } else {
+            showStatus('Save failed: ' + (data.errors?.join('; ') || 'Unknown error'), 'error');
+          }
+        }).catch(e => {
+          showStatus('Save failed: ' + e.message, 'error');
+        });
+      }, 1000);
     });
   }
 });

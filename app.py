@@ -453,7 +453,7 @@ async def upload_keywords(file: UploadFile = File(...)):
             keywords_mapping = dict(zip(df['keyword'].str.lower(), df['translation']))
             
             # Save to file
-            df.to_csv('data/keywords.csv', index=False)
+            df.to_csv(csv_path, index=False)
             
             return {'success': True, 'message': 'Keywords updated successfully'}
         finally:
@@ -851,6 +851,48 @@ async def get_silence_config():
         "silence_threshold": SILENCE_THRESHOLD,
         "silence_duration": SILENCE_DURATION
     }
+
+@app.post("/api/set-config")
+async def set_config(config: dict = Body(...)):
+    """统一设置配置参数（支持部分字段更新）"""
+    global MATCH_THRESHOLD, AUDIO_BUFFER_SECONDS, SILENCE_THRESHOLD, SILENCE_DURATION
+    updated = []
+    errors = []
+    # match_threshold
+    if 'match_threshold' in config:
+        value = config['match_threshold']
+        if 0.0 < value <= 1.0:
+            MATCH_THRESHOLD = value
+            updated.append('match_threshold')
+        else:
+            errors.append('match_threshold must be between 0 and 1')
+    # audio_buffer_seconds
+    if 'audio_buffer_seconds' in config:
+        value = config['audio_buffer_seconds']
+        if 0.5 <= value <= 10.0:
+            AUDIO_BUFFER_SECONDS = value
+            updated.append('audio_buffer_seconds')
+        else:
+            errors.append('audio_buffer_seconds must be between 0.5 and 10.0')
+    # silence_threshold
+    if 'silence_threshold' in config:
+        value = config['silence_threshold']
+        if 0.001 <= value <= 0.1:
+            SILENCE_THRESHOLD = value
+            updated.append('silence_threshold')
+        else:
+            errors.append('silence_threshold must be between 0.001 and 0.1')
+    # silence_duration
+    if 'silence_duration' in config:
+        value = config['silence_duration']
+        if 0.1 <= value <= 2.0:
+            SILENCE_DURATION = value
+            updated.append('silence_duration')
+        else:
+            errors.append('silence_duration must be between 0.1 and 2.0')
+    if updated:
+        save_config()
+    return {"success": len(errors) == 0, "updated": updated, "errors": errors}
 
 @app.websocket("/ws/updates")
 async def websocket_endpoint(websocket: WebSocket):
